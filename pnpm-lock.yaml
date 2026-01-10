@@ -10,10 +10,13 @@ importers:
     dependencies:
       astro:
         specifier: ^5.16.6
-        version: 5.16.6(@types/node@25.0.3)(rollup@4.54.0)(typescript@5.9.3)
+        version: 5.16.6(@types/node@25.0.3)(rollup@4.54.0)(typescript@5.9.3)(yaml@2.8.2)
       dat.gui:
         specifier: ^0.7.9
         version: 0.7.9
+      gl-matrix:
+        specifier: ^3.4.4
+        version: 3.4.4
       stats.js:
         specifier: ^0.17.0
         version: 0.17.0
@@ -866,6 +869,9 @@ packages:
   github-slugger@2.0.0:
     resolution: {integrity: sha512-IaOQ9puYtjrkq7Y0Ygl9KDZnrf/aiUJYUpVf89y8kyaxbRG7Y1SrX/jaumrv81vc61+kiMempujsM3Yw7w5qcw==}
 
+  gl-matrix@3.4.4:
+    resolution: {integrity: sha512-latSnyDNt/8zYUB6VIJ6PCh2jBjJX6gnDsoCZ7LyW7GkqrD51EWwa9qCoGixj8YqBtETQK/xY7OmpTF8xz1DdQ==}
+
   h3@1.15.4:
     resolution: {integrity: sha512-z5cFQWDffyOe4vQ9xIqNfCZdV4p//vy6fBnr8Q1AWnVZ0teurKMG66rLj++TKwKPUP3u7iMUvrvKaEUiQw2QWQ==}
 
@@ -1532,6 +1538,11 @@ packages:
   xxhash-wasm@1.1.0:
     resolution: {integrity: sha512-147y/6YNh+tlp6nd/2pWq38i9h6mz/EuQ6njIrmW8D1BS5nCqs0P6DG+m6zTGnNz5I+uhZ0SHxBs9BsPrwcKDA==}
 
+  yaml@2.8.2:
+    resolution: {integrity: sha512-mplynKqc1C2hTVYxd0PU2xQAc22TI1vShAYGksCCfxbn/dFwnHTNi1bvYsBTkhdUNtGIf5xNOg938rrSSYvS9A==}
+    engines: {node: '>= 14.6'}
+    hasBin: true
+
   yargs-parser@21.1.1:
     resolution: {integrity: sha512-tVpsJW7DdjecAiFpbIB1e3qxIQsE6NoPc5/eTdrbbIC4h0LVsWhnoa3g+m2HclBIujHzsxZ4VJVA+GUuc2/LBw==}
     engines: {node: '>=12'}
@@ -1986,7 +1997,7 @@ snapshots:
 
   array-iterate@2.0.1: {}
 
-  astro@5.16.6(@types/node@25.0.3)(rollup@4.54.0)(typescript@5.9.3):
+  astro@5.16.6(@types/node@25.0.3)(rollup@4.54.0)(typescript@5.9.3)(yaml@2.8.2):
     dependencies:
       '@astrojs/compiler': 2.13.0
       '@astrojs/internal-helpers': 0.7.5
@@ -2043,8 +2054,8 @@ snapshots:
       unist-util-visit: 5.0.0
       unstorage: 1.17.3
       vfile: 6.0.3
-      vite: 6.4.1(@types/node@25.0.3)
-      vitefu: 1.1.1(vite@6.4.1(@types/node@25.0.3))
+      vite: 6.4.1(@types/node@25.0.3)(yaml@2.8.2)
+      vitefu: 1.1.1(vite@6.4.1(@types/node@25.0.3)(yaml@2.8.2))
       xxhash-wasm: 1.1.0
       yargs-parser: 21.1.1
       yocto-spinner: 0.2.3
@@ -2314,6 +2325,8 @@ snapshots:
   get-east-asian-width@1.4.0: {}
 
   github-slugger@2.0.0: {}
+
+  gl-matrix@3.4.4: {}
 
   h3@1.15.4:
     dependencies:
@@ -3216,7 +3229,7 @@ snapshots:
       '@types/unist': 3.0.3
       vfile-message: 4.0.3
 
-  vite@6.4.1(@types/node@25.0.3):
+  vite@6.4.1(@types/node@25.0.3)(yaml@2.8.2):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.3)
@@ -3227,10 +3240,11 @@ snapshots:
     optionalDependencies:
       '@types/node': 25.0.3
       fsevents: 2.3.3
+      yaml: 2.8.2
 
-  vitefu@1.1.1(vite@6.4.1(@types/node@25.0.3)):
+  vitefu@1.1.1(vite@6.4.1(@types/node@25.0.3)(yaml@2.8.2)):
     optionalDependencies:
-      vite: 6.4.1(@types/node@25.0.3)
+      vite: 6.4.1(@types/node@25.0.3)(yaml@2.8.2)
 
   web-namespaces@2.0.1: {}
 
@@ -3247,6 +3261,9 @@ snapshots:
       strip-ansi: 7.1.2
 
   xxhash-wasm@1.1.0: {}
+
+  yaml@2.8.2:
+    optional: true
 
   yargs-parser@21.1.1: {}
 

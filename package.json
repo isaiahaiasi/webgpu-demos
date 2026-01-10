@@ -12,6 +12,7 @@
   "dependencies": {
     "astro": "^5.16.6",
     "dat.gui": "^0.7.9",
+    "gl-matrix": "^3.4.4",
     "stats.js": "^0.17.0"
   },
   "devDependencies": {
