@@ -1,15 +1,23 @@
-@vertex
-fn vs(@builtin(vertex_index) vi: u32) -> @builtin(position) vec4f {
-    var pos = array<vec2f, 3>(
-        vec2f( 0.0,  0.5),  // top center
-        vec2f(-0.5, -0.5),  // bottom left
-        vec2f( 0.5, -0.5)   // bottom right
-    );
+struct Fragment {
+    @builtin(position) pos: vec4<f32>,
+    @location(0) color: vec4<f32>,
+};
 
-    return vec4f(pos[vi], 0.0, 1.0);
+@vertex
+fn vs_main(
+    @location(0) vertexPosition: vec2<f32>,
+    @location(1) vertexColor: vec3<f32>
+) -> Fragment {
+
+    var output: Fragment;
+
+    output.pos = vec4<f32>(vertexPosition, 0.0, 1.0);
+    output.color = vec4<f32>(vertexColor, 1.0);
+
+    return output;
 }
 
 @fragment
-fn fs() -> @location(0) vec4f {
-    return vec4f(1, 0, 0, 1);
+fn fs_main(@location(0) color: vec4<f32>) -> @location(0) vec4f {
+    return color;
 }
