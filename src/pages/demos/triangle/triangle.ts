@@ -1,12 +1,12 @@
-import { Renderer } from "./Renderer";
+import { TriangleRenderer } from "./TriangleRenderer";
 
 export async function main(canvasId: string) {
-	const canvas = document.getElementById(canvasId);
+	const canvas = <HTMLCanvasElement> document.getElementById(canvasId);
 	if (!canvas) {
 		console.error(`Could not get canvas with id ${canvasId}`);
 	}
 
-	const renderer = new Renderer(<HTMLCanvasElement> canvas, "triangle");
+	const renderer = new TriangleRenderer(canvas, "triangle");
 
 	renderer.initialize();
 }
