@@ -1,4 +1,4 @@
-import { mat4 } from "gl-matrix";
+import { mat4, type Mat4 } from "wgpu-matrix";
 import { getGPUDevice } from "../../../utils/wgpu_utils";
 import { TriangleMesh } from "./TriangleMesh";
 
@@ -21,7 +21,7 @@ export class Renderer {
 	// Assets
 	triangleMesh: TriangleMesh;
 
-	// TEMP!
+	/** Time elapsed since rendering began. */
 	t: number;
 
 
@@ -29,7 +29,7 @@ export class Renderer {
 		this.canvas = canvas;
 		this.label = baseLabel;
 
-		this.t = 0.3;
+		this.t = 0;
 	}
 
 	async initialize() {
@@ -37,36 +37,45 @@ export class Renderer {
 		await this.#setupDevice();
 		this.#createAssets();
 		await this.#makePipeline();
-		this.#render();
+		this.#handleRenderLoop();
 	}
 
-	#render() {
-		this.t += 0.01;
-		if (this.t > 2.0 * Math.PI) {
-			this.t -= 2.0 * Math.PI;
+	#handleRenderLoop() {
+		let prevTime = 0;
+
+		const render = (currentTime: number) => {
+			const deltaTime = (currentTime - prevTime) * 0.001 // ms -> s
+			prevTime = currentTime;
+
+			const continue_loop = this.#render(deltaTime);
+
+			if (continue_loop) {
+				requestAnimationFrame(render);
+			}
 		}
+
+		requestAnimationFrame((t) => render(t));
+	}
+
+	/**
+	 * @returns Request next frame.
+	 */
+	#render(deltaTime: number): boolean {
+		this.t = this.t + deltaTime;
+
+		const loopLength = 4;
+		const loopTime = (this.t % loopLength) / loopLength;
 
 		// Set up Model-View-Projection matrices.
 		const aspect = this.canvas.width / this.canvas.height;
-		const projection = mat4.create();
-		mat4.perspective(projection, Math.PI / 4, aspect, 0.1, 10);
 
-		const view = mat4.create();
-		mat4.lookAt(view, [-2, 0, 2], [0, 0, 0], [0, 0, 1]);
+		const projection = mat4.perspective(Math.PI / 4, aspect, 0.1, 10);
+		const view = mat4.lookAt([-2, 0, 1], [0, 0, -0.12], [0, 0, 1]);
+		const model = mat4.rotate(mat4.identity(), [0, 0, 1], loopTime * Math.PI * 2);
 
-		const model = mat4.create();
-		mat4.rotate(model, model, this.t, [0, 0, 1]);
-
-		this.device.queue.writeBuffer(
-			this.uniformBuffer, 0, model as unknown as ArrayBuffer
-		);
-		this.device.queue.writeBuffer(
-			this.uniformBuffer, 64, view as unknown as ArrayBuffer
-		);
-		this.device.queue.writeBuffer(
-			this.uniformBuffer, 128, projection as unknown as ArrayBuffer
-		);
-
+		this.device.queue.writeBuffer(this.uniformBuffer, 0, model.buffer);
+		this.device.queue.writeBuffer(this.uniformBuffer, 64, view.buffer);
+		this.device.queue.writeBuffer(this.uniformBuffer, 128, projection.buffer);
 
 		const commandEncoder = this.device.createCommandEncoder({
 			label: `${this.label}::encoder`,
@@ -93,7 +102,7 @@ export class Renderer {
 		const commandBuffer = commandEncoder.finish();
 		this.device.queue.submit([commandBuffer]);
 
-		requestAnimationFrame(() => this.#render());
+		return true;
 	}
 
 

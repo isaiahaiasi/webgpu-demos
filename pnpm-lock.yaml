@@ -14,12 +14,12 @@ importers:
       dat.gui:
         specifier: ^0.7.9
         version: 0.7.9
-      gl-matrix:
-        specifier: ^3.4.4
-        version: 3.4.4
       stats.js:
         specifier: ^0.17.0
         version: 0.17.0
+      wgpu-matrix:
+        specifier: ^3.4.0
+        version: 3.4.0
     devDependencies:
       '@types/dat.gui':
         specifier: ^0.7.10
@@ -31,7 +31,7 @@ importers:
         specifier: ^0.16.30
         version: 0.16.30
       '@webgpu/types':
-        specifier: ^0.1.32
+        specifier: ^0.1.68
         version: 0.1.68
 
 packages:
@@ -869,9 +869,6 @@ packages:
   github-slugger@2.0.0:
     resolution: {integrity: sha512-IaOQ9puYtjrkq7Y0Ygl9KDZnrf/aiUJYUpVf89y8kyaxbRG7Y1SrX/jaumrv81vc61+kiMempujsM3Yw7w5qcw==}
 
-  gl-matrix@3.4.4:
-    resolution: {integrity: sha512-latSnyDNt/8zYUB6VIJ6PCh2jBjJX6gnDsoCZ7LyW7GkqrD51EWwa9qCoGixj8YqBtETQK/xY7OmpTF8xz1DdQ==}
-
   h3@1.15.4:
     resolution: {integrity: sha512-z5cFQWDffyOe4vQ9xIqNfCZdV4p//vy6fBnr8Q1AWnVZ0teurKMG66rLj++TKwKPUP3u7iMUvrvKaEUiQw2QWQ==}
 
@@ -1522,6 +1519,9 @@ packages:
 
   web-namespaces@2.0.1:
     resolution: {integrity: sha512-bKr1DkiNa2krS7qxNtdrtHAmzuYGFQLiQ13TsorsdT6ULTkPLKuu5+GsFpDlg6JFjUTwX2DyhMPG2be8uPrqsQ==}
+
+  wgpu-matrix@3.4.0:
+    resolution: {integrity: sha512-kXHrbAPKEn9A32Wf4wVldyx9MmnzwhuB5p8GCqoJP3ItU5+iDT4J3aTQwPZWkfb153hwGtqZtUwR2M+ipJKadg==}
 
   which-pm-runs@1.1.0:
     resolution: {integrity: sha512-n1brCuqClxfFfq/Rb0ICg9giSZqCS+pLtccdag6C2HyufBrh3fBOiy9nb6ggRMvWOVH5GrdJskj5iGTZNxd7SA==}
@@ -2325,8 +2325,6 @@ snapshots:
   get-east-asian-width@1.4.0: {}
 
   github-slugger@2.0.0: {}
-
-  gl-matrix@3.4.4: {}
 
   h3@1.15.4:
     dependencies:
@@ -3247,6 +3245,8 @@ snapshots:
       vite: 6.4.1(@types/node@25.0.3)(yaml@2.8.2)
 
   web-namespaces@2.0.1: {}
+
+  wgpu-matrix@3.4.0: {}
 
   which-pm-runs@1.1.0: {}
 
