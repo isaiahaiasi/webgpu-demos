@@ -1,13 +1,15 @@
-export class TriangleMesh {
+import type { MeshAsset } from "../../../utils/types";
+
+export class TriangleMesh implements MeshAsset {
 	buffer: GPUBuffer;
 	bufferLayout: GPUVertexBufferLayout;
 
 	constructor(device: GPUDevice) {
-		// x y r g b
+		// x, y, r, g, b
 		const vertices = new Float32Array([
 			0.0,  0.0,  0.5, 1.0, 0.0, 0.0,
 			0.0, -0.5, -0.5, 0.0, 1.0, 0.0,
-			0.0,  0.5, -0.5, 0.0, 0.0, 1.0, 
+			0.0,  0.5, -0.5, 0.0, 0.0, 1.0,
 		]);
 
 		const usage = GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST;

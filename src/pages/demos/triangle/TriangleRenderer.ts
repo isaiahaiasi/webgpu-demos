@@ -2,9 +2,14 @@ import { mat4 } from "wgpu-matrix";
 import { TriangleMesh } from "./TriangleMesh";
 
 import shader from "./shader.wgsl?raw";
-import { BaseRenderer } from "./Renderer";
+import { BaseRenderer } from "../../../utils/BaseRenderer";
 
-export class TriangleRenderer extends BaseRenderer {
+interface RendererConstructor<T> {
+	constructor: (canvas: HTMLCanvasElement) => T
+}
+
+export class TriangleRenderer
+extends BaseRenderer {
 
 	triangleMesh: TriangleMesh;
 
