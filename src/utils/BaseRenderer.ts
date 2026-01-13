@@ -17,7 +17,7 @@ export abstract class BaseRenderer {
 	bindGroup: GPUBindGroup;
 	pipeline: GPURenderPipeline;
 
-	loop = new RenderLoop();
+	loop = new RenderLoop((dt) => this.render(dt));
 
 	/**
 	 * @returns If frame was fully rendered.
@@ -35,15 +35,35 @@ export abstract class BaseRenderer {
 	}
 
 	async initialize() {
+		this.onStart(() => {console.log("Start!")});
+		this.onStop(() => {console.log("Stop!")});
+
 		this.#setupCanvas();
 		await this.#setupDevice();
+
 		this.createAssets();
 		await this.makePipeline();
-		this.loop.start((dt) => this.render(dt));
+		this.loop.start();
 	}
 
 	get hasErrors() {
 		return this.errors.length > 0;
+	}
+
+	onRender(listener: () => void) {
+		this.loop.pubsub.add('render', listener);
+	}
+
+	onStep(listener: () => void) {
+		this.loop.pubsub.add('step', listener);
+	}
+
+	onStart(listener: () => void) {
+		this.loop.pubsub.add('start', listener);
+	}
+
+	onStop(listener: () => void) {
+		this.loop.pubsub.add('stop', listener);
 	}
 
 	#fail(message: string) {

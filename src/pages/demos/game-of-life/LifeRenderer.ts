@@ -2,6 +2,7 @@ import Stats from "stats.js";
 import shaderCode from "./shader.wgsl?raw";
 import { BaseRenderer } from "../../../utils/BaseRenderer";
 
+
 export class LifeRenderer extends BaseRenderer {
 	gui: dat.GUI;
 	stats: Stats;
@@ -31,6 +32,7 @@ export class LifeRenderer extends BaseRenderer {
 	renderPipeline: GPURenderPipeline;
 	renderBindGroups: GPUBindGroup[];
 	renderPassDesc: GPURenderPassDescriptor;
+
 
 	render() {
 		if (this.loop.paused) {
@@ -263,13 +265,16 @@ const WorkGroupSize : u32 = ${this.settings.workGroupSize}u;
 			.onChange(() => this.#updateColorBuffer());
 	}
 
+	// TODO: reconsider name? I might want to call this the first time as well,
+	// and then use this as my generic "each-time-setup" method
+	// (vs. the one-time-setup method for getting the device/context)
 	/** restart function passed to GUI to recreate this whole initRender without page reload */
 	async #restart() {
 		// create a fresh render setup
 		this.createAssets();
 		await this.makePipeline();
 		this.currentBindGroupIndex = 0;
-		this.loop.start(() => this.render());
+		this.loop.start();
 	}
 
 	/** Update GPU uniform buffer with new colors. */

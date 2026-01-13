@@ -1,18 +1,33 @@
+import { PubSub } from "./PubSub";
+
+
+type RenderLoopEvents = 'render' | 'step' | 'start' | 'stop';
+
+
 export class RenderLoop {
-	#animFrameId: number;
+
+	callback: (deltaTime: number) => boolean | void;
 	timeSinceLastRender: number;
 	timeSinceFirstRender = 0;
-	paused = true;
+	#paused = true;
+	pubsub = new PubSub<RenderLoopEvents>();
 
-	start(callback: (deltaTime: number) => boolean | void) {
+	#animFrameId: number;
+
+	constructor(callback: (deltaTime: number) => boolean | void) {
+		this.callback = callback;
+	}
+
+	get paused() { return this.#paused; }
+
+	start() {
 		this.timeSinceFirstRender = 0;
 		let prevTime = 0;
 
-		if (this.#animFrameId) {
-			cancelAnimationFrame(this.#animFrameId);
-		}
+		this.stop();
 
-		this.paused = false;
+		this.#paused = false;
+		this.pubsub.call('start');
 
 		const loop = (currentTime: number) => {
 			this.#animFrameId = null;
@@ -20,12 +35,15 @@ export class RenderLoop {
 			const deltaTime = (currentTime - prevTime) * 0.001 // ms -> s
 			prevTime = currentTime;
 
-			const resetTimeSinceLastRender = callback(deltaTime);
+			const resetTimeSinceLastRender = this.callback(deltaTime);
+
+			this.pubsub.call('step');
 
 			if (resetTimeSinceLastRender === false) {
 				this.timeSinceLastRender += deltaTime;
 			} else {
 				this.timeSinceLastRender = 0;
+				this.pubsub.call('render');
 			}
 
 			this.timeSinceFirstRender += deltaTime;
@@ -44,6 +62,10 @@ export class RenderLoop {
 		}
 
 		cancelAnimationFrame(this.#animFrameId);
+
 		this.#animFrameId = null;
+		this.#paused = true;
+		this.pubsub.call('stop');
+
 	}
 }
