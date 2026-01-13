@@ -78,10 +78,10 @@ extends BaseRenderer {
 	}
 
 	protected render(deltaTime: number): boolean {
-		this.t = this.t + deltaTime;
+		this.timeSinceFirstRender = this.timeSinceFirstRender + deltaTime;
 
 		const loopLength = 4;
-		const loopTime = (this.t % loopLength) / loopLength;
+		const loopTime = (this.timeSinceFirstRender % loopLength) / loopLength;
 
 		// Set up Model-View-Projection matrices.
 		const aspect = this.canvas.width / this.canvas.height;
