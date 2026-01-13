@@ -1,3 +1,5 @@
+import { RenderLoop } from "./RenderLoop";
+
 export abstract class BaseRenderer {
 
 	label: string;
@@ -15,11 +17,7 @@ export abstract class BaseRenderer {
 	bindGroup: GPUBindGroup;
 	pipeline: GPURenderPipeline;
 
-	// Rendering state
-	timeSinceFirstRender = 0;
-	timeSinceLastRender: number;
-	paused = true;
-	#animFrameId: number;
+	loop = new RenderLoop();
 
 	/**
 	 * @returns If frame was fully rendered.
@@ -41,7 +39,7 @@ export abstract class BaseRenderer {
 		await this.#setupDevice();
 		this.createAssets();
 		await this.makePipeline();
-		this.startRenderLoop();
+		this.loop.start((dt) => this.render(dt));
 	}
 
 	get hasErrors() {
@@ -51,37 +49,6 @@ export abstract class BaseRenderer {
 	#fail(message: string) {
 		console.error(message);
 		this.errors.push(message);
-	}
-
-	startRenderLoop() {
-		let prevTime = 0;
-
-		if (this.#animFrameId) {
-			cancelAnimationFrame(this.#animFrameId);
-		}
-
-		this.paused = false;
-
-		const render = (currentTime: number) => {
-			this.#animFrameId = null;
-
-			const deltaTime = (currentTime - prevTime) * 0.001 // ms -> s
-			prevTime = currentTime;
-
-			const resetTimeSinceLastRender = this.render(deltaTime);
-
-			if (resetTimeSinceLastRender) {
-				this.timeSinceLastRender = 0;
-			} else {
-				this.timeSinceLastRender += deltaTime;
-			}
-
-			if (!this.paused) {
-				this.#animFrameId = requestAnimationFrame(render);
-			}
-		}
-
-		this.#animFrameId = requestAnimationFrame((t) => render(t));
 	}
 
 	#setupCanvas() {

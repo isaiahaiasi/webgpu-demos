@@ -33,7 +33,7 @@ export class LifeRenderer extends BaseRenderer {
 	renderPassDesc: GPURenderPassDescriptor;
 
 	render() {
-		if (this.paused) {
+		if (this.loop.paused) {
 			return false;
 		}
 
@@ -42,7 +42,7 @@ export class LifeRenderer extends BaseRenderer {
 		}
 
 		// Only render at fixed minimum frame time & not paused.
-		if (this.timeSinceLastRender < this.settings.minFrameTime) {
+		if (this.loop.timeSinceLastRender < this.settings.minFrameTime) {
 			return false;
 		}
 
@@ -269,7 +269,7 @@ const WorkGroupSize : u32 = ${this.settings.workGroupSize}u;
 		this.createAssets();
 		await this.makePipeline();
 		this.currentBindGroupIndex = 0;
-		this.startRenderLoop();
+		this.loop.start(() => this.render());
 	}
 
 	/** Update GPU uniform buffer with new colors. */

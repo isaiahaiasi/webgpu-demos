@@ -4,9 +4,6 @@ import { TriangleMesh } from "./TriangleMesh";
 import shader from "./shader.wgsl?raw";
 import { BaseRenderer } from "../../../utils/BaseRenderer";
 
-interface RendererConstructor<T> {
-	constructor: (canvas: HTMLCanvasElement) => T
-}
 
 export class TriangleRenderer
 extends BaseRenderer {
@@ -77,11 +74,9 @@ extends BaseRenderer {
 		});
 	}
 
-	protected render(deltaTime: number): boolean {
-		this.timeSinceFirstRender = this.timeSinceFirstRender + deltaTime;
-
+	protected render(): boolean {
 		const loopLength = 4;
-		const loopTime = (this.timeSinceFirstRender % loopLength) / loopLength;
+		const loopTime = (this.loop.timeSinceFirstRender % loopLength) / loopLength;
 
 		// Set up Model-View-Projection matrices.
 		const aspect = this.canvas.width / this.canvas.height;
