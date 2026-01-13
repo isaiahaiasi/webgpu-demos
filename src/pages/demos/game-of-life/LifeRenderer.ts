@@ -1,12 +1,87 @@
 import Stats from "stats.js";
 import shaderCode from "./shader.wgsl?raw";
 import { BaseRenderer } from "../../../utils/BaseRenderer";
+import type { GUI } from 'dat.gui';
 
+
+export class LifeGui {
+	#gui: GUI;
+	#stats: Stats;
+	#renderer: LifeRenderer;
+
+	get #parentElem() { return this.#renderer.canvas.parentElement; }
+
+	constructor(renderer: LifeRenderer) {
+		this.#renderer = renderer;
+		this.#renderer.onRender(() => { this.#stats?.update() });
+		this.#renderer.onStart(async () => { /*console.log(this);*/ await this.init(); })
+	}
+
+	async init() {
+		this.#cleanup();
+		this.#initStats();
+		await this.#initGui();
+		this.#parentElem.appendChild(this.#stats.dom);
+		this.#parentElem.appendChild(this.#gui.domElement);
+	}
+
+	#cleanup() {
+		this.#stats?.dom.remove();
+		this.#gui?.domElement.remove();
+		this.#gui?.destroy();
+	}
+
+	#initStats() {
+		this.#stats = new Stats();
+
+		this.#stats.showPanel(0);
+		this.#stats.dom.style.position = "absolute";
+		this.#stats.dom.id = "life-stats";
+	}
+
+	async #initGui() {
+		// dat.gui assumes DOM is available, so we import it dynamically to avoid
+		// issues with Astro SSG attempting to process at build time.
+		const dat = await import('dat.gui');
+
+		this.#gui = new dat.GUI({ name: 'life::gui', autoPlace: false });
+		this.#gui.domElement.id = "life-this.gui";
+		this.#gui.domElement.style.position = "absolute";
+		this.#gui.domElement.style.top = "0";
+		this.#gui.domElement.style.right = "0";
+
+		// Controls that require a full reset
+		this.#gui.add(this.#renderer.settings, "workGroupSize", [4, 8, 16])
+			.name("WorkGroupSize")
+			.onFinishChange(() => {
+				this.#renderer.restart();
+			});
+		this.#gui.add(
+				this.#renderer.settings, "boardWidth", 32, 2048, 1)
+			.name("BoardWidth")
+			.onFinishChange(() => {
+				this.#renderer.restart();
+			});
+		this.#gui.add(this.#renderer.settings, "boardHeight", 32, 2048, 1)
+			.name("BoardHeight")
+			.onFinishChange(() => {
+				this.#renderer.restart();
+			});
+
+		// Controls that can update live
+		this.#gui.add(this.#renderer.settings, "minFrameTime", 0, 1, 0.01)
+			.name("MinFrameTime");
+
+		this.#gui.addColor(this.#renderer.settings, "aliveCol")
+			.name("Alive Color")
+			.onChange(() => this.#renderer.updateColorBuffer());
+		this.#gui.addColor(this.#renderer.settings, "deadCol")
+			.name("Dead Color")
+			.onChange(() => this.#renderer.updateColorBuffer());
+		}
+}
 
 export class LifeRenderer extends BaseRenderer {
-	gui: dat.GUI;
-	stats: Stats;
-
 	settings = {
 		workGroupSize: 16, // Options: 4, 8, 16
 		boardWidth: 256,
@@ -37,10 +112,6 @@ export class LifeRenderer extends BaseRenderer {
 	render() {
 		if (this.loop.paused) {
 			return false;
-		}
-
-		if (this.stats) {
-			this.stats.update();
 		}
 
 		// Only render at fixed minimum frame time & not paused.
@@ -79,8 +150,6 @@ export class LifeRenderer extends BaseRenderer {
 	}
 
 	protected async createAssets() {
-		this.#initGui();
-
 		const boardAspect = this.settings.boardWidth / this.settings.boardHeight;
 		const canvasAspect = this.canvas.width / this.canvas.height;
 		const scaleX = canvasAspect > boardAspect ? (boardAspect / canvasAspect) : 1;
@@ -211,65 +280,11 @@ const WorkGroupSize : u32 = ${this.settings.workGroupSize}u;
 		};
 	}
 
-	async #initGui() {
-		// dat.gui assumes DOM is available, so we import it dynamically to avoid
-		// issues with Astro SSG attempting to process at build time.
-		const dat = await import('dat.gui');
-		const parent = this.canvas.parentElement;
-
-		document.getElementById("life-stats")?.remove();
-		this.stats = new Stats();
-		this.stats.showPanel(0);
-		this.stats.dom.style.position = "absolute";
-		this.stats.dom.id = "life-stats";
-		parent.appendChild(this.stats.dom);
- 
-		if (this.gui) {
-			parent.removeChild(this.gui.domElement);
-			this.gui.destroy();
-		}
-
-		this.gui = new dat.GUI({ name: 'life::gui', autoPlace: false });
-		parent.appendChild(this.gui.domElement);
-		this.gui.domElement.id = "life-this.gui";
-		this.gui.domElement.style.position = "absolute";
-		this.gui.domElement.style.top = "0";
-		this.gui.domElement.style.right = "0";
-
-		// Controls that require a full reset
-		this.gui.add(this.settings, "workGroupSize", [4, 8, 16])
-			.name("WorkGroupSize")
-			.onFinishChange(() => {
-				this.#restart();
-			});
-		this.gui.add(this.settings, "boardWidth", 32, 2048, 1)
-			.name("BoardWidth")
-			.onFinishChange(() => {
-				this.#restart();
-			});
-		this.gui.add(this.settings, "boardHeight", 32, 2048, 1)
-			.name("BoardHeight")
-			.onFinishChange(() => {
-				this.#restart();
-			});
-
-		// Controls that can update live
-		this.gui.add(this.settings, "minFrameTime", 0, 1, 0.01)
-			.name("MinFrameTime");
-
-		this.gui.addColor(this.settings, "aliveCol")
-			.name("Alive Color")
-			.onChange(() => this.#updateColorBuffer());
-		this.gui.addColor(this.settings, "deadCol")
-			.name("Dead Color")
-			.onChange(() => this.#updateColorBuffer());
-	}
-
 	// TODO: reconsider name? I might want to call this the first time as well,
 	// and then use this as my generic "each-time-setup" method
 	// (vs. the one-time-setup method for getting the device/context)
 	/** restart function passed to GUI to recreate this whole initRender without page reload */
-	async #restart() {
+	async restart() {
 		// create a fresh render setup
 		this.createAssets();
 		await this.makePipeline();
@@ -278,12 +293,50 @@ const WorkGroupSize : u32 = ${this.settings.workGroupSize}u;
 	}
 
 	/** Update GPU uniform buffer with new colors. */
-	#updateColorBuffer() {
+	updateColorBuffer() {
 		const newColors = new Float32Array([
 			...this.settings.aliveCol.map(v => v / 255), 0,
 			...this.settings.deadCol.map(v => v / 255), 0,
 		]);
 
 		this.device.queue.writeBuffer(this.colorBuffer, 0, newColors);
+	}
+}
+
+export async function main(
+	canvasId: string = "wgpu-canvas",
+	errorsContainerId: string = "wgpu-errors",
+) {
+	const canvas = <HTMLCanvasElement> document.getElementById(canvasId);
+
+	if (!canvas) {
+		console.error(`Could not get canvas with id ${canvasId}`);
+	}
+
+	const renderer = new LifeRenderer(canvas, "life");
+
+	const lifeGui = new LifeGui(renderer);
+
+	canvas.addEventListener("click", () => {
+		if (renderer.loop.paused) {
+			renderer.loop.start();
+		} else {
+			renderer.loop.stop();
+		}
+	});
+
+	try {
+		await lifeGui.init();
+		await renderer.initialize();
+
+	} finally {
+		const errorsContainer = document.getElementById(errorsContainerId);
+
+		for (const errorMessage of renderer.errors) {
+			const errorEl = document.createElement("div");
+			errorEl.className = "wgpu-error-message";
+			errorEl.textContent = errorMessage;
+			errorsContainer.appendChild(errorEl);
+		}
 	}
 }

@@ -9,16 +9,18 @@ export class RenderLoop {
 	callback: (deltaTime: number) => boolean | void;
 	timeSinceLastRender: number;
 	timeSinceFirstRender = 0;
-	#paused = true;
 	pubsub = new PubSub<RenderLoopEvents>();
-
+	
 	#animFrameId: number;
+	#paused = true;
+
+
+	get paused() { return this.#paused; }
+
 
 	constructor(callback: (deltaTime: number) => boolean | void) {
 		this.callback = callback;
 	}
-
-	get paused() { return this.#paused; }
 
 	start() {
 		this.timeSinceFirstRender = 0;
