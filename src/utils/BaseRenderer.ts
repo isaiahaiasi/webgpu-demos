@@ -19,9 +19,7 @@ export abstract class BaseRenderer {
 
 	loop = new RenderLoop((dt) => this.render(dt));
 
-	/**
-	 * @returns If frame was fully rendered.
-	 */
+	/** @returns If frame was fully rendered. */
 	protected abstract render(deltaTime: number): boolean;
 
 	protected abstract makePipeline(): Promise<void>;
@@ -41,6 +39,10 @@ export abstract class BaseRenderer {
 		this.#setupCanvas();
 		await this.#setupDevice();
 
+		this.restart();
+	}
+
+	async restart() {
 		this.createAssets();
 		await this.makePipeline();
 		this.loop.start();
