@@ -1,15 +1,15 @@
 ---
-import demosData from '../data/demos.json';
+import {demoData} from '../data/demos';
 
-const demos = demosData
-  .map(demo => ({
-    url: `/demos/${demo.slug}`,
-    name: demo.slug,
-    title: demo.title
+const demos = Object.keys(demoData)
+  .map(slug => ({
+    url: `/demos/${slug}`,
+    name: slug,
+    title: demoData[slug].title
   }))
   .sort((a, b) => 
-    (demosData.find(d => d.slug === a.name)?.order ?? 999) - 
-    (demosData.find(d => d.slug === b.name)?.order ?? 999)
+    (demoData[a.name]?.order ?? 999) -
+    (demoData[b.name]?.order ?? 999)
   );
 
 const currentPath = Astro.url.pathname;
