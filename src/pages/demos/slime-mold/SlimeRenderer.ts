@@ -7,6 +7,13 @@ import computeShaderCode from "./shaders/compute.wgsl?raw";
 type DirMethod = (pos?: [number, number]) => number;
 type PosMethod = () => [number, number];
 
+/*
+
+CURRENT ISSUES:
+- Buffer handling is crazy
+- Missing GUI/Stats
+
+*/
 
 const TEXTURE_OPTIONS: GPUSamplerDescriptor = {
 	addressModeU: "clamp-to-edge",
@@ -115,7 +122,7 @@ export class SlimeRenderer extends BaseRenderer {
 		agentCounts: [1000, 100, 1] as [number, number, number], // vec3
 
 		// currently requires reload but easily refactorable
-		includeBg: false,
+		includeBg: true,
 
 		// no reload
 		evaporateSpeed: 1.4,
@@ -333,13 +340,13 @@ export class SlimeRenderer extends BaseRenderer {
 		const { texWidth, texHeight } = this.settings;
 
 		this.bgTexture = (() => {
-			let bgTexData = new Array(texWidth * texHeight).fill(0);
+			let bgTexData = new Array(texWidth * texHeight * 4).fill(0);
 
 			if (this.settings.includeBg) {
 				bgTexData = bgTexData.flatMap((_, i) => ([
-					(i % texWidth) / texWidth * 255,
-					Math.floor(i / texWidth) / texHeight * 255,
-					255,
+					(i % texWidth) / texWidth * 255 / 2,
+					Math.floor(i / texWidth) / texHeight * 255 / 2,
+					255 / 2,
 					0 // padding for alignment
 				]));
 			}
@@ -347,6 +354,7 @@ export class SlimeRenderer extends BaseRenderer {
 			const bgTexUint8Array = new Uint8Array(bgTexData);
 
 			const texture = this.device.createTexture({
+				label: `${this.label}::tex::bg`,
 				size: [texWidth, texHeight],
 				format: "rgba8unorm",
 				usage: GPUTextureUsage.COPY_DST
@@ -371,6 +379,7 @@ export class SlimeRenderer extends BaseRenderer {
 			);
 
 			const texture = this.device.createTexture({
+				label: `${this.label}::tex::agents`,
 				size: [texWidth, texHeight],
 				format: "rgba8unorm",
 				usage: GPUTextureUsage.COPY_DST
@@ -396,6 +405,7 @@ export class SlimeRenderer extends BaseRenderer {
 			);
 
 			const texture = this.device.createTexture({
+				label: `${this.label}::tex::trails`,
 				size: [texWidth, texHeight],
 				format: "rgba8unorm",
 				usage: GPUTextureUsage.COPY_DST

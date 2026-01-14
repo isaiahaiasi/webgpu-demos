@@ -13,6 +13,7 @@ export class RenderLoop {
 	
 	#animFrameId: number;
 	#paused = true;
+	#prevRenderTime: number = Number.MAX_SAFE_INTEGER;
 
 
 	get paused() { return this.#paused; }
@@ -24,9 +25,7 @@ export class RenderLoop {
 
 	start() {
 		this.timeSinceFirstRender = 0;
-		let prevTime = 0;
-
-		this.stop();
+		this.stop(); // Make sure cleanup is done if start() was called previously
 
 		this.#paused = false;
 		this.pubsub.call('start');
@@ -34,14 +33,14 @@ export class RenderLoop {
 		const loop = (currentTime: number) => {
 			this.#animFrameId = null;
 
-			const deltaTime = (currentTime - prevTime) * 0.001 // ms -> s
-			prevTime = currentTime;
+			const deltaTime = Math.max(0, currentTime - this.#prevRenderTime) * 0.001;
+			this.#prevRenderTime = currentTime;
 
-			const resetTimeSinceLastRender = this.callback(deltaTime);
+			const wasFrameRendered = this.callback(deltaTime);
 
 			this.pubsub.call('step');
 
-			if (resetTimeSinceLastRender === false) {
+			if (wasFrameRendered === false) {
 				this.timeSinceLastRender += deltaTime;
 			} else {
 				this.timeSinceLastRender = 0;
@@ -67,7 +66,7 @@ export class RenderLoop {
 
 		this.#animFrameId = null;
 		this.#paused = true;
+		this.#prevRenderTime = Number.MAX_SAFE_INTEGER;
 		this.pubsub.call('stop');
-
 	}
 }
