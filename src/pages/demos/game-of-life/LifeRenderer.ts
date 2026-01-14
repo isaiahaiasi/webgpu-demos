@@ -1,83 +1,42 @@
-import Stats from "stats.js";
 import shaderCode from "./shader.wgsl?raw";
 import { BaseRenderer } from "../../../utils/BaseRenderer";
-import type { GUI } from 'dat.gui';
+import { BaseGui } from "../../../utils/BaseGui";
 
 
-export class LifeGui {
-	#gui: GUI;
-	#stats: Stats;
-	#renderer: LifeRenderer;
+export class LifeGui extends BaseGui {
+	declare renderer: LifeRenderer;
 
-	get #parentElem() { return this.#renderer.canvas.parentElement; }
-
-	constructor(renderer: LifeRenderer) {
-		this.#renderer = renderer;
-		this.#renderer.onRender(() => { this.#stats?.update() });
-		this.#renderer.onStart(async () => { await this.init(); })
-	}
-
-	async init() {
-		this.#cleanup();
-		this.#initStats();
-		await this.#initGui();
-		this.#parentElem.appendChild(this.#stats.dom);
-		this.#parentElem.appendChild(this.#gui.domElement);
-	}
-
-	#cleanup() {
-		this.#stats?.dom.remove();
-		this.#gui?.domElement.remove();
-		this.#gui?.destroy();
-	}
-
-	#initStats() {
-		this.#stats = new Stats();
-
-		this.#stats.showPanel(0);
-		this.#stats.dom.style.position = "absolute";
-		this.#stats.dom.id = "life-stats";
-	}
-
-	async #initGui() {
-		// dat.gui assumes DOM is available, so we import it dynamically to avoid
-		// issues with Astro SSG attempting to process at build time.
-		const dat = await import('dat.gui');
-
-		this.#gui = new dat.GUI({ name: 'life::gui', autoPlace: false });
-		this.#gui.domElement.id = "life-this.gui";
-		this.#gui.domElement.style.position = "absolute";
-		this.#gui.domElement.style.top = "0";
-		this.#gui.domElement.style.right = "0";
+	async initGui() {
+		await super.initGui();
 
 		// Controls that require a full reset
-		this.#gui.add(this.#renderer.settings, "workGroupSize", [4, 8, 16])
+		this.gui.add(this.renderer.settings, "workGroupSize", [4, 8, 16])
 			.name("WorkGroupSize")
 			.onFinishChange(() => {
-				this.#renderer.restart();
+				this.renderer.restart();
 			});
-		this.#gui.add(
-				this.#renderer.settings, "boardWidth", 32, 2048, 1)
+		this.gui.add(
+				this.renderer.settings, "boardWidth", 32, 2048, 1)
 			.name("BoardWidth")
 			.onFinishChange(() => {
-				this.#renderer.restart();
+				this.renderer.restart();
 			});
-		this.#gui.add(this.#renderer.settings, "boardHeight", 32, 2048, 1)
+		this.gui.add(this.renderer.settings, "boardHeight", 32, 2048, 1)
 			.name("BoardHeight")
 			.onFinishChange(() => {
-				this.#renderer.restart();
+				this.renderer.restart();
 			});
 
 		// Controls that can update live
-		this.#gui.add(this.#renderer.settings, "minFrameTime", 0, 1, 0.01)
+		this.gui.add(this.renderer.settings, "minFrameTime", 0, 1, 0.01)
 			.name("MinFrameTime");
 
-		this.#gui.addColor(this.#renderer.settings, "aliveCol")
+		this.gui.addColor(this.renderer.settings, "aliveCol")
 			.name("Alive Color")
-			.onChange(() => this.#renderer.updateColorBuffer());
-		this.#gui.addColor(this.#renderer.settings, "deadCol")
+			.onChange(() => this.renderer.updateColorBuffer());
+		this.gui.addColor(this.renderer.settings, "deadCol")
 			.name("Dead Color")
-			.onChange(() => this.#renderer.updateColorBuffer());
+			.onChange(() => this.renderer.updateColorBuffer());
 		}
 }
 

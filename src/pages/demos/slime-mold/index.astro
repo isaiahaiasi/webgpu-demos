@@ -5,11 +5,32 @@ import Layout from "../../../layouts/Layout.astro";
 <Layout title="Slime Mold Simulation (compute shader)">
 	<main>
 		<h1>Slime Mold Simulation</h1>
-			<canvas id="gpu-canvas"></canvas>
+		<canvas id="wgpu-canvas"></canvas>
 	</main>
 </Layout>
 
 <script>
-	import {main} from "./SlimeMold";
-	main("gpu-canvas");
+	import { SlimeGui, SlimeRenderer } from "./SlimeRenderer";
+	
+	const canvasId = 'wgpu-canvas';
+	const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
+
+	if (!canvas) {
+		console.error(`Could not get canvas with id ${canvasId}`);
+	}
+
+	const renderer = new SlimeRenderer(canvas, "slime");
+
+	const slimeGui = new SlimeGui(renderer);
+
+	canvas.addEventListener("click", () => {
+		if (renderer.loop.paused) {
+			renderer.loop.start();
+		} else {
+			renderer.loop.stop();
+		}
+	});
+
+	await renderer.initialize();
+	await slimeGui.init();
 </script>

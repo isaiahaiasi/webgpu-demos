@@ -2,18 +2,16 @@ import { BaseRenderer } from "../../../utils/BaseRenderer";
 
 import renderShaderCode from "./shaders/render.wgsl?raw";
 import computeShaderCode from "./shaders/compute.wgsl?raw";
+import { BaseGui } from "../../../utils/BaseGui";
 
+/*
+CURRENT ISSUES:
+- Buffer handling is crazy
+*/
 
 type DirMethod = (pos?: [number, number]) => number;
 type PosMethod = () => [number, number];
 
-/*
-
-CURRENT ISSUES:
-- Buffer handling is crazy
-- Missing GUI/Stats
-
-*/
 
 const TEXTURE_OPTIONS: GPUSamplerDescriptor = {
 	addressModeU: "clamp-to-edge",
@@ -47,6 +45,23 @@ class SimpleBufferAsset {
 	set(value: ArrayLike<number>) {
 		this.values.set(value);
 		this.#device.queue.writeBuffer(this.buffer, 0, this.values);
+	}
+}
+
+
+export class SlimeGui extends BaseGui {
+	declare renderer: SlimeRenderer;
+
+	protected async initGui() {
+		await super.initGui();
+
+		this.gui.add(this.renderer.settings, "evaporateSpeed", 0, 15, .1);
+		this.gui.add(this.renderer.settings, "diffuseSpeed", 0, 60);
+		this.gui.add(this.renderer.settings, "moveSpeed", 0, 150, 1);
+		this.gui.add(this.renderer.settings, "sensorAngle", (Math.PI / 180), 90 * (Math.PI / 180));
+		this.gui.add(this.renderer.settings, "sensorDst", 1, 100);
+		this.gui.add(this.renderer.settings, "sensorSize", 1, 3, 1);
+		this.gui.add(this.renderer.settings, "turnSpeed", 1, 50);
 	}
 }
 
@@ -113,6 +128,7 @@ class AgentGenerator {
 			.flat();
 	}
 }
+
 
 export class SlimeRenderer extends BaseRenderer {
 	settings = {
@@ -194,7 +210,7 @@ export class SlimeRenderer extends BaseRenderer {
 		// Update simOptions buffer by matching key in this.settings
 		Object.entries(this.simOptionsBuffer.view).forEach(([key, view]) => {
 			const value = this.settings[key];
-			if (!value) {
+			if (value === undefined) {
 				console.error(`${key} not defined in SlimeRenderer settings!`);
 			}
 			view.set(Array.isArray(value) ? value : [value]);
