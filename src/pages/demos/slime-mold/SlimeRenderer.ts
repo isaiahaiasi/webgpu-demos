@@ -1,8 +1,9 @@
 import { BaseRenderer } from "../../../utils/BaseRenderer";
+import { BaseGui } from "../../../utils/BaseGui";
+import { SimpleBufferAsset, StructBufferAsset } from "../../../utils/BufferAsset";
 
 import renderShaderCode from "./shaders/render.wgsl?raw";
 import computeShaderCode from "./shaders/compute.wgsl?raw";
-import { BaseGui } from "../../../utils/BaseGui";
 
 /*
 CURRENT ISSUES:
@@ -19,34 +20,6 @@ const TEXTURE_OPTIONS: GPUSamplerDescriptor = {
 	magFilter: "linear",
 	minFilter: "linear",
 } as const;
-
-/** Does not support multiple "views" */
-class SimpleBufferAsset {
-	buffer: GPUBuffer;
-	values: Float32Array<ArrayBuffer> | Uint32Array<ArrayBuffer>;
-	#device: GPUDevice;
-
-	constructor(
-		device: GPUDevice,
-		initialArray: Float32Array<ArrayBuffer> | Uint32Array<ArrayBuffer>,
-		descriptor: Omit<GPUBufferDescriptor, "size">,
-	) {
-		this.#device = device;
-		this.values = initialArray;
-
-		this.buffer = device.createBuffer({
-			...descriptor,
-			size: initialArray.byteLength,
-		});
-
-		this.set(initialArray);
-	}
-
-	set(value: ArrayLike<number>) {
-		this.values.set(value);
-		this.#device.queue.writeBuffer(this.buffer, 0, this.values);
-	}
-}
 
 
 export class SlimeGui extends BaseGui {
@@ -138,7 +111,7 @@ export class SlimeRenderer extends BaseRenderer {
 		agentCounts: [1000, 100, 1] as [number, number, number], // vec3
 
 		// currently requires reload but easily refactorable
-		includeBg: true,
+		includeBg: false,
 
 		// no reload
 		evaporateSpeed: 1.4,
@@ -163,11 +136,7 @@ export class SlimeRenderer extends BaseRenderer {
 	sceneInfoBuffer: SimpleBufferAsset;
 	debugInputBuffer: SimpleBufferAsset;
 	debugOutputBuffer: SimpleBufferAsset;
-	simOptionsBuffer: {
-		view: Record<string, Float32Array<ArrayBuffer> | Uint32Array<ArrayBuffer>>,
-		buffer: GPUBuffer,
-		values: ArrayBuffer,
-	};
+	simOptionsBuffer: StructBufferAsset;
 
 	// BindGroup Layouts
 	computeBindGroupLayout0: GPUBindGroupLayout;
@@ -188,7 +157,12 @@ export class SlimeRenderer extends BaseRenderer {
 	get #totalAgentCount() {
 		return this.settings.agentCounts.reduce((a, b) => a * b);
 	}
-
+	
+	constructor(canvas: HTMLCanvasElement, label: string) {
+		super(canvas, label);
+		this.onStart(() => {console.log("Start!")});
+		this.onStop(() => {console.log("Stop!")});
+	}
 
 	protected render(deltaTime: number): boolean {
 		// NOTE: renderPassDescriptor doesn't need to be defined in the render loop,
@@ -207,16 +181,24 @@ export class SlimeRenderer extends BaseRenderer {
 
 		this.sceneInfoBuffer.set([deltaTime, deltaTime]);
 
-		// Update simOptions buffer by matching key in this.settings
-		Object.entries(this.simOptionsBuffer.view).forEach(([key, view]) => {
-			const value = this.settings[key];
-			if (value === undefined) {
-				console.error(`${key} not defined in SlimeRenderer settings!`);
-			}
-			view.set(Array.isArray(value) ? value : [value]);
+		this.simOptionsBuffer.set({
+			// We need to wrap numbers in an array
+			diffuseSpeed: [this.settings.diffuseSpeed],
+			evaporateSpeed: [this.settings.evaporateSpeed],
+			evaporateWeight: this.settings.evaporateWeight,
+			moveSpeed: [this.settings.moveSpeed],
+			agentCounts: this.settings.agentCounts,
+			sensorAngle: [this.settings.sensorAngle],
+			sensorDst: [this.settings.sensorDst],
+			sensorSize: [this.settings.sensorSize],
+			turnSpeed: [this.settings.turnSpeed],
 		});
 
-		this.device.queue.writeBuffer(this.simOptionsBuffer.buffer, 0, this.simOptionsBuffer.values);
+		this.device.queue.writeBuffer(
+			this.simOptionsBuffer.buffer,
+			0,
+			this.simOptionsBuffer.values,
+		);
 
 
 		const encoder = this.device.createCommandEncoder({ label: "slime mold::encoder" });
@@ -442,31 +424,24 @@ export class SlimeRenderer extends BaseRenderer {
 	}
 
 	#createBuffers() {
-		// Uniform - SimOptions - BufferAsset can't handle views yet...
-		// MUST BE IN ALPHABETICAL ORDER TO MATCH WGSL STRUCT!
-		const uSimOptionsValues = new ArrayBuffer(80);
-		const uSimOptionsViews = {
-			diffuseSpeed: new Float32Array(uSimOptionsValues, 0, 1),
-			evaporateSpeed: new Float32Array(uSimOptionsValues, 4, 1),
-			evaporateWeight: new Float32Array(uSimOptionsValues, 16, 4),
-			moveSpeed: new Float32Array(uSimOptionsValues, 32, 1),
-			agentCounts: new Uint32Array(uSimOptionsValues, 48, 3),
-			sensorAngle: new Float32Array(uSimOptionsValues, 60, 1),
-			sensorDst: new Float32Array(uSimOptionsValues, 64, 1),
-			sensorSize: new Uint32Array(uSimOptionsValues, 68, 1),
-			turnSpeed: new Float32Array(uSimOptionsValues, 72, 1),
-		};
 
-		const uSimOptionsBuffer = this.device.createBuffer({
-			size: uSimOptionsValues.byteLength,
-			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-		});
-
-		this.simOptionsBuffer = {
-			values: uSimOptionsValues,
-			view: uSimOptionsViews,
-			buffer: uSimOptionsBuffer,
-		};
+		this.simOptionsBuffer = new StructBufferAsset(
+			this.device,
+			80,
+			{ usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST },
+			{
+				// MUST BE IN ALPHABETICAL ORDER TO MATCH WGSL STRUCT!
+				diffuseSpeed: { type: 'f32', offset: 0, length: 1 },
+				evaporateSpeed: {offset: 4, length: 1, type: 'f32' },
+				evaporateWeight:{ offset: 16, length: 4, type: 'f32' },
+				moveSpeed: {offset: 32, length: 1, type: 'f32' },
+				agentCounts:{ offset: 48,length:  3, type: 'u32' },
+				sensorAngle:{offset:  60,length:  1, type: 'f32' },
+				sensorDst:{offset:  64, length: 1, type: 'f32' },
+				sensorSize:{offset:  68, length: 1, type: 'u32' },
+				turnSpeed:{offset:  72, length: 1, type: 'f32' },
+			}
+		);
 
 		// Simple buffers (single Float32Array)
 		this.sceneInfoBuffer = new SimpleBufferAsset(

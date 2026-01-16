@@ -33,9 +33,6 @@ export abstract class BaseRenderer {
 	}
 
 	async initialize() {
-		this.onStart(() => {console.log("Start!")});
-		this.onStop(() => {console.log("Stop!")});
-
 		this.#setupCanvas();
 		await this.#setupDevice();
 

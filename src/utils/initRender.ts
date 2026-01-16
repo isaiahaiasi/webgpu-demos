@@ -20,8 +20,10 @@ export async function initRender(
 	canvas.addEventListener("click", () => {
 		if (renderer.loop.paused) {
 			renderer.loop.start();
+			canvas.classList.remove('paused')
 		} else {
 			renderer.loop.stop();
+			canvas.classList.add('paused')
 		}
 	});
 
