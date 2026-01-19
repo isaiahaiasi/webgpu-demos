@@ -1,3 +1,20 @@
+/*
+Consts prepended in JavaScript module:
+- BoardWidth
+- BoardHeight
+- ScaleX
+- ScaleY
+- WorkGroupSize
+- BIRTH_MAP
+- SURVIVAL_MAP
+
+<STATE>_MAP[neighbor_count] = new_state
+length = max neighbor count + 1, ie 9
+B4678/S35678
+const BIRTH_MAP: array<u32, 9> =    array(0, 0, 0, 0, 1, 0, 1, 1, 1);
+const SURVIVAL_MAP: array<u32, 9> = array(0, 0, 0, 1, 0, 1, 1, 1, 1);
+*/
+
 struct VSOut {
     @builtin(position) pos: vec4f,
     @location(0) uv: vec2f
@@ -69,11 +86,11 @@ fn fs(@location(0) uv : vec2f) -> @location(0) vec4f {
         }
     }
 
-    var newState : u32 = 0u;
-    if (neighborCount == 3u) {
-        newState = 1u;
-    } else if (neighborCount == 2u) {
-        newState = textureLoad(computeTextureSrc, idx).x;
-    }
-    textureStore(computeTextureDst, idx, vec4<u32>(newState, 0u, 0u, 0u));
+    let cur_state = textureLoad(computeTextureSrc, idx).x;
+    let new_state = select(
+        SURVIVAL_MAP[neighborCount],
+        BIRTH_MAP[neighborCount],
+        cur_state != 1u);
+
+    textureStore(computeTextureDst, idx, vec4<u32>(new_state, 0u, 0u, 0u));
 }

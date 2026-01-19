@@ -3,51 +3,98 @@ import { BaseRenderer } from "../../../utils/BaseRenderer";
 import { BaseGui } from "../../../utils/BaseGui";
 
 
+type LifeRendererSettings = {
+		workGroupSize: number; // Options: 4, 8, 16
+		boardWidth: number;
+		boardHeight: number;
+		minFrameTime: number; // minimum frame time in seconds
+		color: {
+			alive: number[], // RGB for alive cells
+			dead: number[], // RGB for dead cells
+		};
+		rules: {
+			initialDensity: number,
+			birth: number[],
+			survival: number[],
+		};
+	};
+
+
 export class LifeGui extends BaseGui {
 	declare renderer: LifeRenderer;
 
 	async initGui() {
 		await super.initGui();
 
+
 		// Controls that require a full reset
-		this.gui.add(this.renderer.settings, "workGroupSize", [4, 8, 16])
+		const staticControls = this.gui.addFolder("Static");
+		staticControls.add(this.renderer.settings, "workGroupSize", [4, 8, 16])
 			.name("WorkGroupSize")
 			.onFinishChange(() => {
 				this.renderer.restart();
 			});
-		this.gui.add(
-				this.renderer.settings, "boardWidth", 32, 2048, 1)
+		staticControls.add(
+			this.renderer.settings, "boardWidth", 32, 2048, 1)
 			.name("BoardWidth")
 			.onFinishChange(() => {
 				this.renderer.restart();
 			});
-		this.gui.add(this.renderer.settings, "boardHeight", 32, 2048, 1)
+		staticControls.add(this.renderer.settings, "boardHeight", 32, 2048, 1)
 			.name("BoardHeight")
 			.onFinishChange(() => {
 				this.renderer.restart();
 			});
+		staticControls.add(this.renderer.settings.rules, "initialDensity", 0, 1)
+			.name("Density")
+			.onFinishChange(() => {
+				this.renderer.restart();
+			});
+
+		staticControls.open();
 
 		// Controls that can update live
-		this.gui.add(this.renderer.settings, "minFrameTime", 0, 1, 0.01)
+		const dynamicControls = this.gui.addFolder("Dynamic");
+		dynamicControls.add(
+			this.renderer.settings,
+			"minFrameTime", 0, 1, 0.01)
 			.name("MinFrameTime");
 
-		this.gui.addColor(this.renderer.settings, "aliveCol")
+		dynamicControls.addColor(this.renderer.settings.color, "alive")
 			.name("Alive Color")
 			.onChange(() => this.renderer.updateColorBuffer());
-		this.gui.addColor(this.renderer.settings, "deadCol")
+		dynamicControls.addColor(this.renderer.settings.color, "dead")
 			.name("Dead Color")
 			.onChange(() => this.renderer.updateColorBuffer());
-		}
+
+		dynamicControls.open();
+	}
 }
 
 export class LifeRenderer extends BaseRenderer {
-	settings = {
+	settings: LifeRendererSettings = {
 		workGroupSize: 16, // Options: 4, 8, 16
 		boardWidth: 256,
 		boardHeight: 256,
 		minFrameTime: .1, // minimum frame time in seconds
-		aliveCol: [255 * .35, 255 * .85, 255], // RGB for alive cells
-		deadCol: [255 * 0.15, 0, 255 * 0.25], // RGB for dead cells
+		color: {
+			alive: [255 * .35, 255 * .85, 255], // RGB for alive cells
+			dead: [255 * 0.15, 0, 255 * 0.25], // RGB for dead cells
+		},
+		rules: {
+			// Conway
+			// birth: [3],
+			// survival: [2, 3],
+			// Anneal
+			// birth: [4, 6, 7, 8],
+			// survival: [3, 5, 6, 7, 8],
+			// Maze
+			// birth: [3],
+			// survival: [1,2,3,4,5],
+			initialDensity: 0.5,
+			birth: [3,6,8],
+			survival: [2,4,5],
+		}
 	};
 
 	// Rendering state
@@ -56,7 +103,7 @@ export class LifeRenderer extends BaseRenderer {
 	// Buffer/texture assets
 	cellTextures: GPUTexture[];
 	colorBuffer: GPUBuffer;
-	
+
 	// Pipeline assets
 	sharedShaderModule: GPUShaderModule;
 
@@ -68,7 +115,7 @@ export class LifeRenderer extends BaseRenderer {
 	renderPassDesc: GPURenderPassDescriptor;
 
 
-	async restart(){
+	async restart() {
 		this.currentBindGroupIndex = 0;
 		await super.restart();
 	}
@@ -119,6 +166,13 @@ export class LifeRenderer extends BaseRenderer {
 		const scaleX = canvasAspect > boardAspect ? (boardAspect / canvasAspect) : 1;
 		const scaleY = canvasAspect > boardAspect ? 1 : (canvasAspect / boardAspect);
 
+		/** Returns array{9}, with indices given by m set to 1, otherwise 0 */
+		const getStateMap = (m: number[]) => {
+			const state = new Array(9).fill(0);
+			m.forEach(m => { state[m] = 1; });
+			return state;
+		}
+
 		this.sharedShaderModule = this.device.createShaderModule({
 			label: 'life::module::shader',
 			// Changing these constants requires a full reset of the pipeline,
@@ -129,6 +183,8 @@ const BoardHeight : u32 = ${this.settings.boardHeight}u;
 const ScaleX : f32 = ${scaleX};
 const ScaleY : f32 = ${scaleY};
 const WorkGroupSize : u32 = ${this.settings.workGroupSize}u;
+const BIRTH_MAP: array<u32, 9> =    array(${getStateMap(this.settings.rules.birth)});
+const SURVIVAL_MAP: array<u32, 9> = array(${getStateMap(this.settings.rules.survival)});
 ` + shaderCode,
 		});
 
@@ -147,7 +203,7 @@ const WorkGroupSize : u32 = ${this.settings.workGroupSize}u;
 			);
 
 			for (let i = 0; i < initState.length; i++) {
-				initState[i] = Math.random() > 0.8 ? 1 : 0;
+				initState[i] = Math.random() > this.settings.rules.initialDensity ? 0 : 1;
 			}
 
 			// Copy initial state to first ping pong buffer
@@ -160,8 +216,8 @@ const WorkGroupSize : u32 = ${this.settings.workGroupSize}u;
 		}
 
 		const colorBufferValues = new Float32Array([
-			...this.settings.aliveCol.map(c => c / 255), 0,
-			...this.settings.deadCol.map(c => c / 255), 0,
+			...this.settings.color.alive.map(c => c / 255), 0,
+			...this.settings.color.dead.map(c => c / 255), 0,
 		]);
 
 		this.colorBuffer = this.device.createBuffer({
@@ -247,8 +303,8 @@ const WorkGroupSize : u32 = ${this.settings.workGroupSize}u;
 	/** Update GPU uniform buffer with new colors. */
 	updateColorBuffer() {
 		const newColors = new Float32Array([
-			...this.settings.aliveCol.map(v => v / 255), 0,
-			...this.settings.deadCol.map(v => v / 255), 0,
+			...this.settings.color.alive.map(v => v / 255), 0,
+			...this.settings.color.dead.map(v => v / 255), 0,
 		]);
 
 		this.device.queue.writeBuffer(this.colorBuffer, 0, newColors);
@@ -259,7 +315,7 @@ export async function main(
 	canvasId: string = "wgpu-canvas",
 	errorsContainerId: string = "wgpu-errors",
 ) {
-	const canvas = <HTMLCanvasElement> document.getElementById(canvasId);
+	const canvas = <HTMLCanvasElement>document.getElementById(canvasId);
 
 	if (!canvas) {
 		console.error(`Could not get canvas with id ${canvasId}`);
