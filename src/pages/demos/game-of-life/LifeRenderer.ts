@@ -1,9 +1,8 @@
 import shaderCode from "./shader.wgsl?raw";
 import { BaseRenderer } from "../../../utils/BaseRenderer";
-import { BaseGui } from "../../../utils/BaseGui";
 
 
-type LifeRendererSettings = {
+export type LifeRendererSettings = {
 		workGroupSize: number; // Options: 4, 8, 16
 		boardWidth: number;
 		boardHeight: number;
@@ -20,59 +19,9 @@ type LifeRendererSettings = {
 	};
 
 
-export class LifeGui extends BaseGui {
-	declare renderer: LifeRenderer;
-
-	async initGui() {
-		await super.initGui();
-
-
-		// Controls that require a full reset
-		const staticControls = this.gui.addFolder("Static");
-		staticControls.add(this.renderer.settings, "workGroupSize", [4, 8, 16])
-			.name("WorkGroupSize")
-			.onFinishChange(() => {
-				this.renderer.restart();
-			});
-		staticControls.add(
-			this.renderer.settings, "boardWidth", 32, 2048, 1)
-			.name("BoardWidth")
-			.onFinishChange(() => {
-				this.renderer.restart();
-			});
-		staticControls.add(this.renderer.settings, "boardHeight", 32, 2048, 1)
-			.name("BoardHeight")
-			.onFinishChange(() => {
-				this.renderer.restart();
-			});
-		staticControls.add(this.renderer.settings.rules, "initialDensity", 0, 1)
-			.name("Density")
-			.onFinishChange(() => {
-				this.renderer.restart();
-			});
-
-		staticControls.open();
-
-		// Controls that can update live
-		const dynamicControls = this.gui.addFolder("Dynamic");
-		dynamicControls.add(
-			this.renderer.settings,
-			"minFrameTime", 0, 1, 0.01)
-			.name("MinFrameTime");
-
-		dynamicControls.addColor(this.renderer.settings.color, "alive")
-			.name("Alive Color")
-			.onChange(() => this.renderer.updateColorBuffer());
-		dynamicControls.addColor(this.renderer.settings.color, "dead")
-			.name("Dead Color")
-			.onChange(() => this.renderer.updateColorBuffer());
-
-		dynamicControls.open();
-	}
-}
-
-export class LifeRenderer extends BaseRenderer {
-	settings: LifeRendererSettings = {
+/** This is a function to avoid multiple renderers sharing the same reference. */
+function getDefaultSettings(): LifeRendererSettings {
+	return {
 		workGroupSize: 16, // Options: 4, 8, 16
 		boardWidth: 256,
 		boardHeight: 256,
@@ -82,20 +31,16 @@ export class LifeRenderer extends BaseRenderer {
 			dead: [255 * 0.15, 0, 255 * 0.25], // RGB for dead cells
 		},
 		rules: {
-			// Conway
-			// birth: [3],
-			// survival: [2, 3],
-			// Anneal
-			// birth: [4, 6, 7, 8],
-			// survival: [3, 5, 6, 7, 8],
-			// Maze
-			// birth: [3],
-			// survival: [1,2,3,4,5],
-			initialDensity: 0.5,
-			birth: [3,6,8],
-			survival: [2,4,5],
+			initialDensity: 0.2,
+			birth: [3],
+			survival: [2,3],
 		}
 	};
+}
+
+
+export class LifeRenderer extends BaseRenderer {
+	settings: LifeRendererSettings;
 
 	// Rendering state
 	currentBindGroupIndex: 1 | 0 = 0; // Ping Pong Buffer index
@@ -113,6 +58,15 @@ export class LifeRenderer extends BaseRenderer {
 	renderPipeline: GPURenderPipeline;
 	renderBindGroups: GPUBindGroup[];
 	renderPassDesc: GPURenderPassDescriptor;
+
+
+	constructor(
+		canvas: HTMLCanvasElement,
+		settings?: Partial<LifeRendererSettings>,
+		label = "life") {
+			super(canvas, label);
+			this.settings = {...getDefaultSettings(), ...settings};
+	}
 
 
 	async restart() {
@@ -308,45 +262,5 @@ const SURVIVAL_MAP: array<u32, 9> = array(${getStateMap(this.settings.rules.surv
 		]);
 
 		this.device.queue.writeBuffer(this.colorBuffer, 0, newColors);
-	}
-}
-
-export async function main(
-	canvasId: string = "wgpu-canvas",
-	errorsContainerId: string = "wgpu-errors",
-) {
-	const canvas = <HTMLCanvasElement>document.getElementById(canvasId);
-
-	if (!canvas) {
-		console.error(`Could not get canvas with id ${canvasId}`);
-	}
-
-	const renderer = new LifeRenderer(canvas, "life");
-
-	const lifeGui = new LifeGui(renderer);
-
-	canvas.addEventListener("click", () => {
-		if (renderer.loop.paused) {
-			renderer.loop.start();
-			canvas.classList.remove('paused')
-		} else {
-			renderer.loop.stop();
-			canvas.classList.add('paused')
-		}
-	});
-
-	try {
-		await lifeGui.init();
-		await renderer.initialize();
-
-	} finally {
-		const errorsContainer = document.getElementById(errorsContainerId);
-
-		for (const errorMessage of renderer.errors) {
-			const errorEl = document.createElement("div");
-			errorEl.className = "wgpu-error-message";
-			errorEl.textContent = errorMessage;
-			errorsContainer.appendChild(errorEl);
-		}
 	}
 }

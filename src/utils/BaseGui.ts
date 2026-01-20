@@ -38,6 +38,10 @@ export class BaseGui {
 		this.parentElem.appendChild(this.gui.domElement);
 	}
 
+	destroy() {
+		this.#cleanup();
+	}
+
 	#cleanup() {
 		this.stats?.dom.remove();
 		this.gui?.domElement.remove();

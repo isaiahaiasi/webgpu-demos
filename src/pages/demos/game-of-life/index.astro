@@ -4,14 +4,34 @@ import Layout from "../../../layouts/Layout.astro";
 
 <Layout title="Game of Life">
 	<main>
-		<h1>Cellular Automata</h1>
-		<div>Conway's "Game of Life" and other simple celllular automata</div>
+		<header>
+			<h1>Cellular Automata</h1>
+			<div class="subheading">Conway's "Game of Life" and other simple celllular automata</div>
+		</header>
 		<div id="wgpu-errors"></div>
+		<div id="life-presets">
+			<button data-preset="conway">Conway</button>
+			<button data-preset="maze">Maze</button>
+			<button data-preset="anneal">Anneal</button>
+			<button data-preset="inkspot">Inkspot</button>
+			<button data-preset="morley">Morley</button>
+		</div>
 		<canvas id="wgpu-canvas"></canvas>
 	</main>
 </Layout>
 
 <script>
-import { main } from "./LifeRenderer";
+	import { main } from "./main";
+	
 	main('wgpu-canvas', 'wgpu-errors');
 </script>
+
+<style>
+	header {
+		margin: 1rem;
+	}
+
+	h1 {
+		margin: 0;
+	}
+</style>
