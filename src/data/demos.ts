@@ -12,4 +12,8 @@ export const demoData = {
         title: "Game of Life",
         description: "Basic intro to cellular automata.",
     },
+    "larger-life": {
+        title: "Larger Life",
+        description: "More cellular automata, supporting larger neighborhoods.",
+    },
 };

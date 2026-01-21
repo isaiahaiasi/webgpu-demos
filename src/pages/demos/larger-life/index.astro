@@ -1,0 +1,39 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+---
+
+<Layout title="Game of Life">
+	<main>
+		<header>
+			<h1>More Cellular Automata</h1>
+			<div class="subheading">"Larger Life" <span class="warn">(Work in progress!)</span></div>
+			<p>Adds support for larger neighborhoods, allowing more complex behaviors.
+			Current ruleset: "Bosco's Rule" (aka "Bugs") by Kellie Evans</p>
+		</header>
+		<div id="wgpu-errors"></div>
+		<canvas id="wgpu-canvas"></canvas>
+	</main>
+</Layout>
+
+<script>
+	import { main } from "./main";
+	
+	main('wgpu-canvas', 'wgpu-errors');
+</script>
+
+<style>
+	header {
+		margin: 1rem;
+	}
+
+	h1 {
+		margin: 0;
+	}
+
+	.warn {
+		background-color: coral;
+		border-radius: 5px;
+		font-weight: bold;
+		padding: 4px;
+	}
+</style>
