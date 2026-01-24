@@ -108,7 +108,7 @@ export class SlimeRenderer extends BaseRenderer {
 		// reload required
 		texWidth: 2048,
 		texHeight: 1024,
-		agentCounts: [1000, 100, 1] as [number, number, number], // vec3
+		agentCounts: [2000, 2000, 1] as [number, number, number], // vec3
 
 		// currently requires reload but easily refactorable
 		includeBg: false,
@@ -124,6 +124,20 @@ export class SlimeRenderer extends BaseRenderer {
 		turnSpeed: 20,
 	};
 
+	// Avoid allocating new arrays every frame.
+	private sceneInfoArray = new Float32Array(2);
+	private simOptionsData = {
+		diffuseSpeed: new Float32Array(1),
+		evaporateSpeed: new Float32Array(1),
+		evaporateWeight: new Float32Array(4),
+		moveSpeed: new Float32Array(1),
+		agentCounts: new Uint32Array(3),
+		sensorAngle: new Float32Array(1),
+		sensorDst: new Float32Array(1),
+		sensorSize: new Uint32Array(1),
+		turnSpeed: new Float32Array(1),
+	}
+
 	// ASSETS
 
 	// Textures
@@ -134,8 +148,6 @@ export class SlimeRenderer extends BaseRenderer {
 	// Buffers (Storage & Uniform)
 	agentsBuffer: SimpleBufferAsset;
 	sceneInfoBuffer: SimpleBufferAsset;
-	debugInputBuffer: SimpleBufferAsset;
-	debugOutputBuffer: SimpleBufferAsset;
 	simOptionsBuffer: StructBufferAsset;
 
 	// BindGroup Layouts
@@ -153,46 +165,47 @@ export class SlimeRenderer extends BaseRenderer {
 	computeProcessPipeline: GPUComputePipeline;
 	renderPipeline: GPURenderPipeline;
 
+	renderPassDescriptor: GPURenderPassDescriptor;
+
+	// Performance handling
+	private framesPending = 0;
+	private maxPendingFrames = 2;
+
 
 	get #totalAgentCount() {
 		return this.settings.agentCounts.reduce((a, b) => a * b);
 	}
-	
+
 	constructor(canvas: HTMLCanvasElement, label: string) {
 		super(canvas, label);
-		this.onStart(() => {console.log("Start!")});
-		this.onStop(() => {console.log("Stop!")});
+		this.onStart(() => { console.log("Start!") });
+		this.onStop(() => { console.log("Stop!") });
 	}
 
 	protected render(deltaTime: number): boolean {
-		// NOTE: renderPassDescriptor doesn't need to be defined in the render loop,
-		// I just didn't want to add another instance variable...
-		const renderPassDescriptor = {
-			label: "basic canvas renderPass",
-			colorAttachments: [{
-				// typescript doesn't let `view` be undefined,
-				// even tho webgpufundamentals leaves it undefined until render()
-				view: this.context.getCurrentTexture().createView(),
-				clearValue: [0.3, 0.3, 0.3, 1],
-				loadOp: "clear",
-				storeOp: "store",
-			}],
-		} satisfies GPURenderPassDescriptor;
+		if (this.framesPending >= this.maxPendingFrames) {
+        return false;  // Skip this frame
+    }
+    
+    this.framesPending++;
+	
+		this.renderPassDescriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
 
-		this.sceneInfoBuffer.set([deltaTime, deltaTime]);
+		this.sceneInfoArray[0] = deltaTime;
+    this.sceneInfoArray[1] = deltaTime;
+    this.sceneInfoBuffer.set(this.sceneInfoArray);
 
-		this.simOptionsBuffer.set({
-			// We need to wrap numbers in an array
-			diffuseSpeed: [this.settings.diffuseSpeed],
-			evaporateSpeed: [this.settings.evaporateSpeed],
-			evaporateWeight: this.settings.evaporateWeight,
-			moveSpeed: [this.settings.moveSpeed],
-			agentCounts: this.settings.agentCounts,
-			sensorAngle: [this.settings.sensorAngle],
-			sensorDst: [this.settings.sensorDst],
-			sensorSize: [this.settings.sensorSize],
-			turnSpeed: [this.settings.turnSpeed],
-		});
+    this.simOptionsData.diffuseSpeed[0] = this.settings.diffuseSpeed;
+    this.simOptionsData.evaporateSpeed[0] = this.settings.evaporateSpeed;
+    this.simOptionsData.evaporateWeight.set(this.settings.evaporateWeight);
+    this.simOptionsData.moveSpeed[0] = this.settings.moveSpeed;
+    this.simOptionsData.agentCounts.set(this.settings.agentCounts);
+    this.simOptionsData.sensorAngle[0] = this.settings.sensorAngle;
+    this.simOptionsData.sensorDst[0] = this.settings.sensorDst;
+    this.simOptionsData.sensorSize[0] = this.settings.sensorSize;
+    this.simOptionsData.turnSpeed[0] = this.settings.turnSpeed;
+    
+    this.simOptionsBuffer.set(this.simOptionsData);
 
 		this.device.queue.writeBuffer(
 			this.simOptionsBuffer.buffer,
@@ -207,33 +220,31 @@ export class SlimeRenderer extends BaseRenderer {
 		computePass.setPipeline(this.computeUpdatePipeline);
 		computePass.setBindGroup(0, this.computeBindGroup0);
 		computePass.setBindGroup(1, this.computeBindGroup1);
-		computePass.dispatchWorkgroups(...this.settings.agentCounts);
+		const workgroupSize = 64;
+		const numWorkgroups = Math.ceil(this.#totalAgentCount / workgroupSize);
+		computePass.dispatchWorkgroups(numWorkgroups, 1, 1);
 		computePass.end();
 
 		computePass = encoder.beginComputePass();
 		computePass.setPipeline(this.computeProcessPipeline);
 		computePass.setBindGroup(0, this.computeBindGroup0);
 		computePass.setBindGroup(1, this.computeBindGroup2);
-		computePass.dispatchWorkgroups(this.settings.texWidth, this.settings.texHeight);
+		computePass.dispatchWorkgroups(
+			Math.ceil(this.settings.texWidth / 16),
+			Math.ceil(this.settings.texHeight / 16)
+		);
 		computePass.end();
 
 
-		renderPassDescriptor.colorAttachments[0].view =
+		this.renderPassDescriptor.colorAttachments[0].view =
 			this.context.getCurrentTexture().createView();
 
-		const renderPass = encoder.beginRenderPass(renderPassDescriptor);
+		const renderPass = encoder.beginRenderPass(this.renderPassDescriptor);
 		renderPass.setPipeline(this.renderPipeline);
 
 		renderPass.setBindGroup(0, this.renderBindGroup);
 		renderPass.draw(6);
 		renderPass.end();
-
-
-		encoder.copyBufferToBuffer(
-			this.debugInputBuffer.buffer, 0,
-			this.debugOutputBuffer.buffer, 0,
-			this.debugOutputBuffer.buffer.size
-		);
 
 		encoder.copyTextureToTexture(
 			{ texture: this.trailTexture },
@@ -244,14 +255,9 @@ export class SlimeRenderer extends BaseRenderer {
 		const commandBuffer = encoder.finish();
 		this.device.queue.submit([commandBuffer]);
 
-		// console.log debug buffer values
-		// if (renderCount % 420 == 2) {
-		// 	await this.debugOutputBuffer.buffer.mapAsync(GPUMapMode.READ);
-		// 	const res = new Float32Array(uDebugOutputBuffer.getMappedRange());
-		// 	console.log(res);
-
-		// 	uDebugOutputBuffer.unmap();
-		// }
+		this.device.queue.onSubmittedWorkDone().then(() => {
+        this.framesPending--;
+    });
 
 		return true;
 	}
@@ -314,6 +320,16 @@ export class SlimeRenderer extends BaseRenderer {
 		});
 
 		this.#createBindGroups();
+
+		this.renderPassDescriptor = {
+			label: "slime mold::renderpassdescriptor",
+			colorAttachments: [{
+				view: undefined as any, // We'll set this each frame
+				clearValue: [0.3, 0.3, 0.3, 1],
+				loadOp: "clear",
+				storeOp: "store",
+			}],
+		};
 	}
 
 	protected async createAssets() {
@@ -432,14 +448,14 @@ export class SlimeRenderer extends BaseRenderer {
 			{
 				// MUST BE IN ALPHABETICAL ORDER TO MATCH WGSL STRUCT!
 				diffuseSpeed: { type: 'f32', offset: 0, length: 1 },
-				evaporateSpeed: {offset: 4, length: 1, type: 'f32' },
-				evaporateWeight:{ offset: 16, length: 4, type: 'f32' },
-				moveSpeed: {offset: 32, length: 1, type: 'f32' },
-				agentCounts:{ offset: 48,length:  3, type: 'u32' },
-				sensorAngle:{offset:  60,length:  1, type: 'f32' },
-				sensorDst:{offset:  64, length: 1, type: 'f32' },
-				sensorSize:{offset:  68, length: 1, type: 'u32' },
-				turnSpeed:{offset:  72, length: 1, type: 'f32' },
+				evaporateSpeed: { offset: 4, length: 1, type: 'f32' },
+				evaporateWeight: { offset: 16, length: 4, type: 'f32' },
+				moveSpeed: { offset: 32, length: 1, type: 'f32' },
+				agentCounts: { offset: 48, length: 3, type: 'u32' },
+				sensorAngle: { offset: 60, length: 1, type: 'f32' },
+				sensorDst: { offset: 64, length: 1, type: 'f32' },
+				sensorSize: { offset: 68, length: 1, type: 'u32' },
+				turnSpeed: { offset: 72, length: 1, type: 'f32' },
 			}
 		);
 
@@ -448,24 +464,6 @@ export class SlimeRenderer extends BaseRenderer {
 			this.device,
 			new Float32Array(2),
 			{ usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST },
-		);
-
-		this.debugInputBuffer = new SimpleBufferAsset(
-			this.device,
-			new Float32Array([0, 0, 0, 0, 0, 0]),
-			{
-				label: "debug output buffer",
-				usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
-			},
-		);
-
-		this.debugOutputBuffer = new SimpleBufferAsset(
-			this.device,
-			new Float32Array([0, 0, 0, 0, 0, 0]),
-			{
-				label: "debug output buffer",
-				usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-			},
 		);
 
 		// Storage - Agents
@@ -491,11 +489,6 @@ export class SlimeRenderer extends BaseRenderer {
 					binding: 1,
 					visibility: GPUShaderStage.COMPUTE,
 					buffer: { type: "uniform" },
-				},
-				{
-					binding: 2,
-					visibility: GPUShaderStage.COMPUTE,
-					buffer: { type: "storage" },
 				},
 			],
 		});
@@ -530,7 +523,6 @@ export class SlimeRenderer extends BaseRenderer {
 			entries: [
 				{ binding: 0, resource: { buffer: this.sceneInfoBuffer.buffer } },
 				{ binding: 1, resource: { buffer: this.simOptionsBuffer.buffer } },
-				{ binding: 2, resource: { buffer: this.debugInputBuffer.buffer } },
 			],
 		});
 

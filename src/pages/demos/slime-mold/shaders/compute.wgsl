@@ -48,49 +48,54 @@ fn normHash(s: u32) -> f32 {
 @group(1) @binding(1) var writeTex: texture_storage_2d<rgba8unorm, write>;
 @group(1) @binding(2) var readTex: texture_2d<f32>;
 
-// add up each trail texel within bounds of agent sensor
+// add up trail texels within bounds of agent sensor
+// instead of looking at all, just sample a portion.
 fn sense(agent: Agent, sensorAngleOffset: f32) -> f32 {
-    var tDims = textureDimensions(writeTex);
+    let tDims = textureDimensions(readTex);
     let sensorAngle = agent.angle + sensorAngleOffset;
     let sensorDir = vec2f(cos(sensorAngle), sin(sensorAngle));
-    let sensorCenter = vec2f(agent.pos + sensorDir * options.sensorDst);
-
+    let sensorCenter = agent.pos + sensorDir * options.sensorDst;
+    
+    // Just sample center + 4 cardinal directions instead of full square
+    let coords = array<vec2i, 5>(
+        vec2i(sensorCenter),
+        vec2i(sensorCenter) + vec2i(1, 0),
+        vec2i(sensorCenter) + vec2i(-1, 0),
+        vec2i(sensorCenter) + vec2i(0, 1),
+        vec2i(sensorCenter) + vec2i(0, -1),
+    );
+    
     var sum = 0.0;
-    var iSize = f32(options.sensorSize);
-    for (var xoff = -iSize; xoff <= iSize; xoff += 1) {
-        for (var yoff = -iSize; yoff <= iSize; yoff += 1) {
-            var pos = vec2u(sensorCenter + vec2(xoff, yoff));
-
-            if (pos.x >= 0 && pos.x < tDims.x && pos.y >= 0 && pos.y < tDims.y) {
-                var t = textureLoad(readTex, pos, 0);
-                sum += t.r + t.g + t.b;
-            }
-        }
+    for (var i = 0; i < 5; i++) {
+        let pos = clamp(
+            vec2u(coords[i]),
+            vec2u(0),
+            tDims - vec2u(1)
+        );
+        let t = textureLoad(readTex, pos, 0);
+        sum += t.r + t.g + t.b;
     }
-
+    
     return sum;
 }
 
-@compute @workgroup_size(1) fn update_agents(
+@compute @workgroup_size(64) fn update_agents(
     @builtin(global_invocation_id) giid: vec3<u32>,
 ) {
-    if (giid.x < 0 || giid.x >= options.agentCounts.x
-        || giid.y < 0 || giid.y >= options.agentCounts.y
-        || giid.z < 0 || giid.z >= options.agentCounts.z) {
+    let totalAgents = options.agentCounts.x * options.agentCounts.y * options.agentCounts.z;
+    let _id = giid.x;  // Now giid.x is the flat agent index
+    
+    if (_id >= totalAgents) {
         return;
     }
+    
+    var agent = agents[_id];
+    let prn = normHash(hash(
+        u32(agent.pos.y * f32(textureDimensions(readTex).x) + agent.pos.x) + hash(_id)
+    ));
 
     let tDims = textureDimensions(readTex);
     let fTDims = vec2f(tDims);
-
-    let _id = giid.x 
-        + giid.y * options.agentCounts.x 
-        + giid.z * options.agentCounts.x * options.agentCounts.y;
-
-    var agent = agents[_id];
-    let prn = normHash(hash(
-        u32(agent.pos.y * fTDims.x + agent.pos.x) + hash(_id)
-    ));
 
     // pick a direction (w some random variance)
     // based on trail density at 3 possible points in front of agent.
@@ -136,9 +141,13 @@ fn sense(agent: Agent, sensorAngleOffset: f32) -> f32 {
     textureStore(writeTex, vec2u(newPos), vec4f(1));
 }
 
-@compute @workgroup_size(16) fn process_trailmap(
+@compute @workgroup_size(16, 16) fn process_trailmap(
     @builtin(global_invocation_id) giid: vec3<u32>,
 ) {
+    if ((giid.x + giid.y + u32(info.time * 60.0)) % 2u == 0u) {
+        return;
+    }
+
     let tDims = textureDimensions(readTex);
 
     if (giid.x < 0 || giid.x >= tDims.x || giid.y < 0 || giid.y >= tDims.y) {
