@@ -30,6 +30,17 @@ export abstract class BaseRenderer {
 	constructor(canvas: HTMLCanvasElement, baseLabel: string) {
 		this.canvas = canvas;
 		this.label = baseLabel;
+
+		// Back pressure to prevent several commandBuffers being queued up at once,
+		// which would create a negative feedback loop and can rapidly degrade
+		// performance once frames start dropping.
+		this.onRender(() => {
+			this.loop.framesPending++;
+
+			this.device.queue.onSubmittedWorkDone().then(() => {
+				this.loop.framesPending--;
+			});
+		});
 	}
 
 	async initialize() {

@@ -6,7 +6,7 @@ type RenderLoopEvents = 'render' | 'step' | 'start' | 'stop';
 
 export class RenderLoop {
 
-	callback: (deltaTime: number) => boolean | void;
+	callback: (deltaTime: number) => boolean;
 	timeSinceLastRender: number;
 	timeSinceFirstRender = 0;
 	pubsub = new PubSub<RenderLoopEvents>();
@@ -15,11 +15,17 @@ export class RenderLoop {
 	#paused = true;
 	#prevRenderTime: number = Number.MAX_SAFE_INTEGER;
 
+	// Used so consumers of the RenderLoop class can throttle the render loop.
+	// This is important because requestAnimationframe is called based on *browser*
+	// refresh rate--it doesn't care how long it takes to actually render
+	// a new frame.
+	framesPending = 0;
+	maxPendingFrames = 2;
 
 	get paused() { return this.#paused; }
 
 
-	constructor(callback: (deltaTime: number) => boolean | void) {
+	constructor(callback: (deltaTime: number) => boolean) {
 		this.callback = callback;
 	}
 
@@ -36,7 +42,11 @@ export class RenderLoop {
 			const deltaTime = Math.max(0, currentTime - this.#prevRenderTime) * 0.001;
 			this.#prevRenderTime = currentTime;
 
-			const wasFrameRendered = this.callback(deltaTime);
+			let wasFrameRendered = false;
+
+			if (this.framesPending < this.maxPendingFrames) {
+				wasFrameRendered = this.callback(deltaTime);
+			}
 
 			this.pubsub.call('step');
 

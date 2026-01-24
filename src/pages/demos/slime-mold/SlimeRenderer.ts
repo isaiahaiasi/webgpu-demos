@@ -108,7 +108,7 @@ export class SlimeRenderer extends BaseRenderer {
 		// reload required
 		texWidth: 2048,
 		texHeight: 1024,
-		agentCounts: [2000, 2000, 1] as [number, number, number], // vec3
+		agentCounts: [2050, 2000, 1] as [number, number, number], // vec3
 
 		// currently requires reload but easily refactorable
 		includeBg: false,
@@ -167,10 +167,6 @@ export class SlimeRenderer extends BaseRenderer {
 
 	renderPassDescriptor: GPURenderPassDescriptor;
 
-	// Performance handling
-	private framesPending = 0;
-	private maxPendingFrames = 2;
-
 
 	get #totalAgentCount() {
 		return this.settings.agentCounts.reduce((a, b) => a * b);
@@ -178,34 +174,29 @@ export class SlimeRenderer extends BaseRenderer {
 
 	constructor(canvas: HTMLCanvasElement, label: string) {
 		super(canvas, label);
-		this.onStart(() => { console.log("Start!") });
-		this.onStop(() => { console.log("Stop!") });
+		this.onStart(() => { console.log("Start!"); });
+		this.onStop(() => { console.log("Stop!"); });
 	}
 
 	protected render(deltaTime: number): boolean {
-		if (this.framesPending >= this.maxPendingFrames) {
-        return false;  // Skip this frame
-    }
-    
-    this.framesPending++;
-	
+
 		this.renderPassDescriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
 
 		this.sceneInfoArray[0] = deltaTime;
-    this.sceneInfoArray[1] = deltaTime;
-    this.sceneInfoBuffer.set(this.sceneInfoArray);
+		this.sceneInfoArray[1] = deltaTime;
+		this.sceneInfoBuffer.set(this.sceneInfoArray);
 
-    this.simOptionsData.diffuseSpeed[0] = this.settings.diffuseSpeed;
-    this.simOptionsData.evaporateSpeed[0] = this.settings.evaporateSpeed;
-    this.simOptionsData.evaporateWeight.set(this.settings.evaporateWeight);
-    this.simOptionsData.moveSpeed[0] = this.settings.moveSpeed;
-    this.simOptionsData.agentCounts.set(this.settings.agentCounts);
-    this.simOptionsData.sensorAngle[0] = this.settings.sensorAngle;
-    this.simOptionsData.sensorDst[0] = this.settings.sensorDst;
-    this.simOptionsData.sensorSize[0] = this.settings.sensorSize;
-    this.simOptionsData.turnSpeed[0] = this.settings.turnSpeed;
-    
-    this.simOptionsBuffer.set(this.simOptionsData);
+		this.simOptionsData.diffuseSpeed[0] = this.settings.diffuseSpeed;
+		this.simOptionsData.evaporateSpeed[0] = this.settings.evaporateSpeed;
+		this.simOptionsData.evaporateWeight.set(this.settings.evaporateWeight);
+		this.simOptionsData.moveSpeed[0] = this.settings.moveSpeed;
+		this.simOptionsData.agentCounts.set(this.settings.agentCounts);
+		this.simOptionsData.sensorAngle[0] = this.settings.sensorAngle;
+		this.simOptionsData.sensorDst[0] = this.settings.sensorDst;
+		this.simOptionsData.sensorSize[0] = this.settings.sensorSize;
+		this.simOptionsData.turnSpeed[0] = this.settings.turnSpeed;
+
+		this.simOptionsBuffer.set(this.simOptionsData);
 
 		this.device.queue.writeBuffer(
 			this.simOptionsBuffer.buffer,
@@ -254,10 +245,6 @@ export class SlimeRenderer extends BaseRenderer {
 
 		const commandBuffer = encoder.finish();
 		this.device.queue.submit([commandBuffer]);
-
-		this.device.queue.onSubmittedWorkDone().then(() => {
-        this.framesPending--;
-    });
 
 		return true;
 	}
