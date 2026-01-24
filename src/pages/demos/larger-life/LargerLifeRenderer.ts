@@ -46,12 +46,12 @@ function getDefaultSettings(): LargerLifeRendererSettings {
 		},
 		rules: {
 			initialDensity: 0.5,
-			neighborhoodDistance: 5,
+			neighborhoodDistance: 5, // Area = (2 * dist + 1)^2
 			includeSelf: true,
-			survivalMin: 34,
-			survivalMax: 58,
-			birthMin: 34,
-			birthMax: 45,
+			survivalMin: 0.2809917355,
+			survivalMax: 0.479338843,
+			birthMin: 0.2809917355,
+			birthMax: 0.3719008264,
 			nieghborhoodType: 'NM',
 		},
 	};
@@ -151,11 +151,11 @@ const ScaleY : f32 = ${scaleY};
 const WorkGroupSize : u32 = ${this.settings.workGroupSize}u;
 const IncludeSelf = ${this.settings.rules.includeSelf};
 const NeighborhoodDistance = ${this.settings.rules.neighborhoodDistance}i;
-const BirthRange: array<u32, 2> =    array(
+const BirthRange: array<f32, 2> =    array(
 	${this.settings.rules.birthMin},
 	${this.settings.rules.birthMax}
 );
-const SurvivalRange: array<u32, 2> = array(
+const SurvivalRange: array<f32, 2> = array(
 	${this.settings.rules.survivalMin},
 	${this.settings.rules.survivalMax}
 );

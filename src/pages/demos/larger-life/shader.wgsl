@@ -89,16 +89,19 @@ fn fs(@location(0) uv : vec2f) -> @location(0) vec4f {
         neighborCount += cur_state;
     }
 
+    let neighborhoodWidth = f32(NeighborhoodDistance * 2 + 1);
+    let density = f32(neighborCount) / (neighborhoodWidth * neighborhoodWidth);
+
     var new_state : u32;
 
     if (cur_state == 1u) {
-        if (neighborCount >= SurvivalRange[0] && neighborCount <= SurvivalRange[1]) {
+        if (density >= SurvivalRange[0] && density <= SurvivalRange[1]) {
             new_state = 1u;
         } else {
             new_state = 0u;
         }
     } else {
-        if (neighborCount >= BirthRange[0] && neighborCount <= BirthRange[1]) {
+        if (density >= BirthRange[0] && density <= BirthRange[1]) {
             new_state = 1u;
         } else {
             new_state = 0u;

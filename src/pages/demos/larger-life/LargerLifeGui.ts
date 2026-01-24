@@ -47,22 +47,22 @@ export class LargerLifeGui extends BaseGui {
 			.onFinishChange(() => {
 				this.renderer.restart();
 			});
-		ruleControls.add(this.renderer.settings.rules, "survivalMin", 0, 99, 1)
+		ruleControls.add(this.renderer.settings.rules, "survivalMin", 0, 1)
 			.name("SurvivalMin")
 			.onFinishChange(() => {
 				this.renderer.restart();
 			});
-		ruleControls.add(this.renderer.settings.rules, "survivalMax", 1, 100, 1)
+		ruleControls.add(this.renderer.settings.rules, "survivalMax", 0, 1)
 			.name("SurvivalMax")
 			.onFinishChange(() => {
 				this.renderer.restart();
 			});
-		ruleControls.add(this.renderer.settings.rules, "birthMin", 0, 99, 1)
+		ruleControls.add(this.renderer.settings.rules, "birthMin", 0, 1)
 			.name("BirthMin")
 			.onFinishChange(() => {
 				this.renderer.restart();
 			});
-		ruleControls.add(this.renderer.settings.rules, "birthMax", 0, 100, 1)
+		ruleControls.add(this.renderer.settings.rules, "birthMax", 0, 1)
 			.name("BirthMax")
 			.onFinishChange(() => {
 				this.renderer.restart();
