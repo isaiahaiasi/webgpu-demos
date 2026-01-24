@@ -23,10 +23,10 @@ export type LargerLifeRendererSettings = {
 		neighborhoodDistance: number;
 		// whether current cell should be counted in neighborhood
 		includeSelf: boolean;
-		// [start, end] inclusive range of agent count
-		// determines whether a cell is reborn/survives
-		birth: number[];
-		survival: number[];
+		birthMin: number;
+		birthMax: number;
+		survivalMin: number;
+		survivalMax: number;
 
 		nieghborhoodType: Neighborhood;
 	};
@@ -48,8 +48,10 @@ function getDefaultSettings(): LargerLifeRendererSettings {
 			initialDensity: 0.5,
 			neighborhoodDistance: 5,
 			includeSelf: true,
-			survival: [34,58],
-			birth: [34, 45],
+			survivalMin: 34,
+			survivalMax: 58,
+			birthMin: 34,
+			birthMax: 45,
 			nieghborhoodType: 'NM',
 		},
 	};
@@ -149,8 +151,14 @@ const ScaleY : f32 = ${scaleY};
 const WorkGroupSize : u32 = ${this.settings.workGroupSize}u;
 const IncludeSelf = ${this.settings.rules.includeSelf};
 const NeighborhoodDistance = ${this.settings.rules.neighborhoodDistance}i;
-const BirthRange: array<u32, 2> =    array(${this.settings.rules.birth});
-const SurvivalRange: array<u32, 2> = array(${this.settings.rules.survival});
+const BirthRange: array<u32, 2> =    array(
+	${this.settings.rules.birthMin},
+	${this.settings.rules.birthMax}
+);
+const SurvivalRange: array<u32, 2> = array(
+	${this.settings.rules.survivalMin},
+	${this.settings.rules.survivalMax}
+);
 ` + shaderCode,
 		});
 

@@ -1,10 +1,14 @@
+import type { BaseGui } from "../../../utils/BaseGui";
 import type { BaseRenderer } from "../../../utils/BaseRenderer";
+import { LargerLifeGui } from "./LargerLifeGui";
 import { LargerLifeRenderer } from "./LargerLifeRenderer";
 
 
 
 let currentRenderer: BaseRenderer | null = null;
-let currentCanvasListener: () => void;
+let currentGui: BaseGui | null = null;
+let currentCanvasListener: (() => void) | null = null;
+
 
 function handlePause(canvas: HTMLCanvasElement, renderer: BaseRenderer) {
 	const paused = 'paused';
@@ -39,6 +43,10 @@ export async function main(
 		currentRenderer.loop.stop();
 	}
 
+	if (currentGui) {
+		currentGui.destroy();
+	}
+
 	const canvas = <HTMLCanvasElement>document.getElementById(canvasId);
 
 	if (!canvas) {
@@ -46,10 +54,12 @@ export async function main(
 	}
 
 	currentRenderer = new LargerLifeRenderer(canvas);
+	currentGui = new LargerLifeGui(currentRenderer);
 
 	handlePause(canvas, currentRenderer);
 
 	try {
+		await currentGui.init();
 		await currentRenderer.initialize();
 
 	} finally {
