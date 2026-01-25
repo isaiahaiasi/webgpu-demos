@@ -28,7 +28,7 @@ export class SlimeRenderer extends BaseRenderer {
 
 		// no reload
 		evaporateSpeed: 1.4,
-		evaporateWeight: [0.4, 0.2, 0.15, 1], // vec4
+		evaporateColor: [100, 230, 240, 0],
 		diffuseSpeed: 50,
 		moveSpeed: 80,
 		sensorAngle: 25 * (Math.PI / 180), // radian angle of left/right sensors
@@ -96,7 +96,7 @@ export class SlimeRenderer extends BaseRenderer {
 
 		this.simOptionsData.diffuseSpeed[0] = this.settings.diffuseSpeed;
 		this.simOptionsData.evaporateSpeed[0] = this.settings.evaporateSpeed;
-		this.simOptionsData.evaporateWeight.set(this.settings.evaporateWeight);
+		this.simOptionsData.evaporateWeight.set([...this.settings.evaporateColor.map((c) => ((255 - c) / 255))]);
 		this.simOptionsData.moveSpeed[0] = this.settings.moveSpeed;
 		this.simOptionsData.agentCount[0] = this.settings.agentCount;
 		this.simOptionsData.sensorAngle[0] = this.settings.sensorAngle;

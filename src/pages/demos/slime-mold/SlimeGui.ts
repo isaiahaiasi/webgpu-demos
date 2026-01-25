@@ -1,5 +1,4 @@
 import { BaseGui } from "../../../utils/BaseGui";
-import type AgentGenerator from "./AgentGenerator";
 import type { SlimeRenderer } from "./SlimeRenderer";
 
 export class SlimeGui extends BaseGui {
@@ -22,11 +21,12 @@ export class SlimeGui extends BaseGui {
 
     const dynamicOpts = this.gui.addFolder("Dynamic");
     dynamicOpts.open();
-    dynamicOpts.add(this.renderer.settings, "evaporateSpeed", 0, 15, .1);
-    dynamicOpts.add(this.renderer.settings, "diffuseSpeed", 0, 60);
-    dynamicOpts.add(this.renderer.settings, "moveSpeed", 0, 150, 1);
+    dynamicOpts.addColor(this.renderer.settings, "evaporateColor").name("evaporateCol");
+    dynamicOpts.add(this.renderer.settings, "evaporateSpeed", 0, 15, .1).name("evaporateSpd");
+    dynamicOpts.add(this.renderer.settings, "diffuseSpeed", 0, 60).name("diffuseSpd");
+    dynamicOpts.add(this.renderer.settings, "moveSpeed", 0, 150, 1).name("moveSpd");
     dynamicOpts.add(this.renderer.settings, "sensorAngle", (Math.PI / 180), 90 * (Math.PI / 180));
     dynamicOpts.add(this.renderer.settings, "sensorDst", 1, 100);
-    dynamicOpts.add(this.renderer.settings, "turnSpeed", 1, 50);
+    dynamicOpts.add(this.renderer.settings, "turnSpeed", 1, 50).name("turnSpd");
   }
 }
