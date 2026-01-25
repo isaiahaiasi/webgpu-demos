@@ -19,7 +19,7 @@ export class SlimeRenderer extends BaseRenderer {
 		// reload required
 		texWidth: 2048,
 		texHeight: 1024,
-		agentCount: 2_000_000,
+		agentCount: 1_000_000,
 		startModePos: 'filledCircle',
 		startModeDir: 'fromCenter',
 
@@ -27,8 +27,9 @@ export class SlimeRenderer extends BaseRenderer {
 		includeBg: false,
 
 		// no reload
-		evaporateSpeed: 1.4,
-		evaporateColor: [100, 230, 240, 0],
+		evaporateSpeed: 3,
+		evaporateColor: [100, 230, 240, 255],
+		backgroundColor: [30, 0, 70, 255],
 		diffuseSpeed: 50,
 		moveSpeed: 80,
 		sensorAngle: 25 * (Math.PI / 180), // radian angle of left/right sensors
@@ -38,12 +39,13 @@ export class SlimeRenderer extends BaseRenderer {
 
 	// Avoid allocating new arrays every frame.
 	private sceneInfoArray = new Float32Array(2);
+	private bgColorArray = new Float32Array(4);
 	private simOptionsData = {
+		agentCount: new Uint32Array(1),
 		diffuseSpeed: new Float32Array(1),
 		evaporateSpeed: new Float32Array(1),
 		evaporateWeight: new Float32Array(4),
 		moveSpeed: new Float32Array(1),
-		agentCount: new Uint32Array(1),
 		sensorAngle: new Float32Array(1),
 		sensorDst: new Float32Array(1),
 		sensorSize: new Uint32Array(1),
@@ -60,6 +62,7 @@ export class SlimeRenderer extends BaseRenderer {
 	// Buffers (Storage & Uniform)
 	agentsBuffer: SimpleBufferAsset;
 	sceneInfoBuffer: SimpleBufferAsset;
+	bgColorBuffer: SimpleBufferAsset;
 	simOptionsBuffer: StructBufferAsset;
 
 	// BindGroup Layouts
@@ -80,12 +83,6 @@ export class SlimeRenderer extends BaseRenderer {
 	renderPassDescriptor: GPURenderPassDescriptor;
 
 
-	constructor(canvas: HTMLCanvasElement, label: string) {
-		super(canvas, label);
-		this.onStart(() => { console.log("Start!"); });
-		this.onStop(() => { console.log("Stop!"); });
-	}
-
 	protected render(deltaTime: number): boolean {
 
 		this.renderPassDescriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
@@ -94,9 +91,16 @@ export class SlimeRenderer extends BaseRenderer {
 		this.sceneInfoArray[1] = deltaTime;
 		this.sceneInfoBuffer.set(this.sceneInfoArray);
 
+		this.bgColorArray.set(
+			[...this.settings.backgroundColor.map((c) => (c / 255))]
+		);
+		this.bgColorBuffer.set(this.bgColorArray);
+
 		this.simOptionsData.diffuseSpeed[0] = this.settings.diffuseSpeed;
 		this.simOptionsData.evaporateSpeed[0] = this.settings.evaporateSpeed;
-		this.simOptionsData.evaporateWeight.set([...this.settings.evaporateColor.map((c) => ((255 - c) / 255))]);
+		this.simOptionsData.evaporateWeight.set(
+			[...this.settings.evaporateColor.map((c) => ((255 - c) / 255))]
+		);
 		this.simOptionsData.moveSpeed[0] = this.settings.moveSpeed;
 		this.simOptionsData.agentCount[0] = this.settings.agentCount;
 		this.simOptionsData.sensorAngle[0] = this.settings.sensorAngle;
@@ -104,12 +108,6 @@ export class SlimeRenderer extends BaseRenderer {
 		this.simOptionsData.turnSpeed[0] = this.settings.turnSpeed;
 
 		this.simOptionsBuffer.set(this.simOptionsData);
-
-		this.device.queue.writeBuffer(
-			this.simOptionsBuffer.buffer,
-			0,
-			this.simOptionsBuffer.values,
-		);
 
 
 		const encoder = this.device.createCommandEncoder({ label: "slime mold::encoder" });
@@ -157,9 +155,14 @@ export class SlimeRenderer extends BaseRenderer {
 	}
 
 	protected async makePipeline() {
+		const boardAspect = this.settings.texWidth / this.settings.texHeight;
+		const canvasAspect = this.canvas.width / this.canvas.height;
+		const scaleX = canvasAspect > boardAspect ? (boardAspect / canvasAspect) : 1;
+		const scaleY = canvasAspect > boardAspect ? 1 : (canvasAspect / boardAspect);
+
 		const computeModule = this.device.createShaderModule({
 			label: "slime mold::module::compute",
-			code: `
+			code: `\
 				const i_TEX_DIMENSIONS = vec2i(${this.settings.texWidth}, ${this.settings.texHeight});
 				const f_TEX_DIMENSIONS = vec2f(${this.settings.texWidth}, ${this.settings.texHeight});
 				${computeShaderCode}
@@ -168,7 +171,11 @@ export class SlimeRenderer extends BaseRenderer {
 
 		const renderModule = this.device.createShaderModule({
 			label: "slime mold::module::render",
-			code: renderShaderCode,
+			code: `\
+				const SCALE_X = ${scaleX}f;
+				const SCALE_Y = ${scaleY}f;
+				${renderShaderCode}
+			`,
 		});
 
 		this.#createLayouts();
@@ -223,7 +230,7 @@ export class SlimeRenderer extends BaseRenderer {
 			label: "slime mold::renderpassdescriptor",
 			colorAttachments: [{
 				view: undefined as any, // We'll set this each frame
-				clearValue: [0.3, 0.3, 0.3, 1],
+				clearValue: [0, 0, 0, 1], // black
 				loadOp: "clear",
 				storeOp: "store",
 			}],
@@ -345,11 +352,11 @@ export class SlimeRenderer extends BaseRenderer {
 			{ usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST },
 			{
 				// MUST BE IN ALPHABETICAL ORDER TO MATCH WGSL STRUCT!
+				agentCount: { offset: 36, length: 1, type: 'u32' },
 				diffuseSpeed: { offset: 0, length: 1, type: 'f32' },
 				evaporateSpeed: { offset: 4, length: 1, type: 'f32' },
 				evaporateWeight: { offset: 16, length: 4, type: 'f32' },
 				moveSpeed: { offset: 32, length: 1, type: 'f32' },
-				agentCount: { offset: 36, length: 1, type: 'u32' },
 				sensorAngle: { offset: 40, length: 1, type: 'f32' },
 				sensorDst: { offset: 44, length: 1, type: 'f32' },
 				turnSpeed: { offset: 48, length: 1, type: 'f32' },
@@ -360,6 +367,12 @@ export class SlimeRenderer extends BaseRenderer {
 		this.sceneInfoBuffer = new SimpleBufferAsset(
 			this.device,
 			new Float32Array(2),
+			{ usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST },
+		);
+
+		this.bgColorBuffer = new SimpleBufferAsset(
+			this.device,
+			new Float32Array(4),
 			{ usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST },
 		);
 
@@ -450,6 +463,7 @@ export class SlimeRenderer extends BaseRenderer {
 				{ binding: 0, resource: sampler },
 				{ binding: 1, resource: this.bgTexture.createView() },
 				{ binding: 2, resource: this.trailTexture.createView() },
+				{ binding: 3, resource: { buffer: this.bgColorBuffer.buffer } },
 			],
 		});
 	}

@@ -22,6 +22,9 @@ export class RenderLoop {
 	framesPending = 0;
 	maxPendingFrames = 2;
 
+	// Don't respect time scaling if the frame took more than 1/15th of a second.
+	maxTimeDelta = .067;
+
 	get paused() { return this.#paused; }
 
 
@@ -39,7 +42,11 @@ export class RenderLoop {
 		const loop = (currentTime: number) => {
 			this.#animFrameId = null;
 
-			const deltaTime = Math.max(0, currentTime - this.#prevRenderTime) * 0.001;
+			const deltaTime = Math.min(
+				Math.max(0, currentTime - this.#prevRenderTime) * 0.001,
+				this.maxTimeDelta
+			);
+
 			this.#prevRenderTime = currentTime;
 
 			let wasFrameRendered = false;

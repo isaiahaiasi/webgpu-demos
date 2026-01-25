@@ -42,7 +42,6 @@ export class BaseGui {
 	}
 
 	#cleanup() {
-		console.log("cleanup")
 		this.stats?.dom.remove();
 		this.gui?.domElement.remove();
 		this.gui?.destroy();
