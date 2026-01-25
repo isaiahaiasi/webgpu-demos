@@ -10,9 +10,10 @@ import Layout from "../../../layouts/Layout.astro";
 </Layout>
 
 <script>
-	import { SlimeGui, SlimeRenderer } from "./SlimeRenderer";
-	
-	const canvasId = 'wgpu-canvas';
+	import { SlimeGui } from "./SlimeGui";
+	import { SlimeRenderer } from "./SlimeRenderer";
+
+	const canvasId = "wgpu-canvas";
 	const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
 
 	if (!canvas) {
@@ -20,19 +21,17 @@ import Layout from "../../../layouts/Layout.astro";
 	}
 
 	const renderer = new SlimeRenderer(canvas, "slime");
-
-	const slimeGui = new SlimeGui(renderer);
+	new SlimeGui(renderer);
 
 	canvas.addEventListener("click", () => {
 		if (renderer.loop.paused) {
 			renderer.loop.start();
-			canvas.classList.remove('paused')
+			canvas.classList.remove("paused");
 		} else {
 			renderer.loop.stop();
-			canvas.classList.add('paused')
+			canvas.classList.add("paused");
 		}
 	});
 
 	await renderer.initialize();
-	await slimeGui.init();
 </script>

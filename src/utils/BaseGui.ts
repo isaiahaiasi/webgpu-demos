@@ -23,7 +23,6 @@ export class BaseGui {
 		this.renderer = renderer;
 		this.renderer.onRender(() => { this.stats?.update() });
 
-		// TODO: change to onInit instead of onUnpause...
 		this.renderer.onStart(async () => { await this.init(); });
 
 		this.parentElem = this.renderer.canvas.parentElement;
@@ -43,6 +42,7 @@ export class BaseGui {
 	}
 
 	#cleanup() {
+		console.log("cleanup")
 		this.stats?.dom.remove();
 		this.gui?.domElement.remove();
 		this.gui?.destroy();

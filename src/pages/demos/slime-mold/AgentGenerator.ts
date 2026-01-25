@@ -1,9 +1,6 @@
 type PosMethod = () => [number, number];
 type DirMethod = (() => number) | ((pos: [number, number]) => number);
-interface TextureDimensionOptions {
-	texWidth: number;
-	texHeight: number;
-}
+
 
 export default class AgentGenerator {
 	cx: number;
@@ -11,7 +8,7 @@ export default class AgentGenerator {
 	w: number;
 	h: number;
 
-	constructor({ texWidth, texHeight }: TextureDimensionOptions) {
+	constructor(texWidth: number, texHeight: number) {
 		this.w = texWidth;
 		this.h = texHeight;
 		this.cx = texWidth / 2;
@@ -23,7 +20,7 @@ export default class AgentGenerator {
 		field: () => [Math.random() * this.w, Math.random() * this.h],
 		subField: (pct = 3) => [
 			(this.w / pct) + Math.random() * this.w * (pct - 2) / pct,
-			(this.w / pct) + Math.random() * this.h * (pct - 2) / pct,
+			(this.h / pct) + Math.random() * this.h * (pct - 2) / pct,
 		],
 		filledCircle: (radiusScale = .5) => {
 			const r = this.cy * radiusScale * Math.random();

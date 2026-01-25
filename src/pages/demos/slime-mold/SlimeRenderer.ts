@@ -1,17 +1,9 @@
 import { BaseRenderer } from "../../../utils/BaseRenderer";
-import { BaseGui } from "../../../utils/BaseGui";
 import { SimpleBufferAsset, StructBufferAsset } from "../../../utils/BufferAsset";
 
 import renderShaderCode from "./shaders/render.wgsl?raw";
 import computeShaderCode from "./shaders/compute.wgsl?raw";
-
-/*
-CURRENT ISSUES:
-- Buffer handling is crazy
-*/
-
-type DirMethod = (pos?: [number, number]) => number;
-type PosMethod = () => [number, number];
+import AgentGenerator from "./AgentGenerator";
 
 
 const TEXTURE_OPTIONS: GPUSamplerDescriptor = {
@@ -22,93 +14,14 @@ const TEXTURE_OPTIONS: GPUSamplerDescriptor = {
 } as const;
 
 
-export class SlimeGui extends BaseGui {
-	declare renderer: SlimeRenderer;
-
-	protected async initGui() {
-		await super.initGui();
-
-		this.gui.add(this.renderer.settings, "evaporateSpeed", 0, 15, .1);
-		this.gui.add(this.renderer.settings, "diffuseSpeed", 0, 60);
-		this.gui.add(this.renderer.settings, "moveSpeed", 0, 150, 1);
-		this.gui.add(this.renderer.settings, "sensorAngle", (Math.PI / 180), 90 * (Math.PI / 180));
-		this.gui.add(this.renderer.settings, "sensorDst", 1, 100);
-		this.gui.add(this.renderer.settings, "sensorSize", 1, 3, 1);
-		this.gui.add(this.renderer.settings, "turnSpeed", 1, 50);
-	}
-}
-
-
-class AgentGenerator {
-	cx: number;
-	cy: number;
-	w: number;
-	h: number;
-
-	pos = {
-		center: () => [this.cx, this.cy],
-		field: () => [Math.random() * this.w, Math.random() * this.h],
-		subField: (pct = 3) => [
-			(this.w / pct) + Math.random() * this.w * (pct - 2) / pct,
-			(this.w / pct) + Math.random() * this.h * (pct - 2) / pct,
-		],
-		filledCircle: (radiusScale = .5) => {
-			const r = this.cy * radiusScale * Math.random();
-			const theta = Math.random() * Math.PI * 2;
-			return [
-				this.cx + r * Math.cos(theta),
-				this.cy + r * Math.sin(theta),
-			];
-		}
-	} satisfies Record<string, (num?: number) => [number, number]>;
-
-	readonly dir = {
-		random: () => Math.random() * Math.PI * 2,
-		toCenter: (pos: [number, number]) =>
-			Math.atan2(pos[1] - this.cy, pos[0] - this.cx) + Math.PI,
-		fromCenter: (pos: [number, number]) =>
-			Math.atan2(pos[1] - this.cy, pos[0] - this.cx),
-	};
-
-	constructor(texWidth: number, texHeight: number) {
-		this.w = texWidth;
-		this.h = texHeight;
-		this.cx = texWidth / 2;
-		this.cy = texHeight / 2;
-	}
-
-
-	createSpawnData(
-		positionFn: PosMethod,
-		directionFn: DirMethod,
-	) {
-		const pos = positionFn();
-		return [
-			...pos,
-			directionFn(pos),
-			0
-		];
-	}
-
-	getAgents(
-		numAgents: number,
-		positionFn: PosMethod,
-		directionFn: DirMethod,
-	) {
-		return new Array(numAgents)
-			.fill(0)
-			.map(() => this.createSpawnData(positionFn, directionFn))
-			.flat();
-	}
-}
-
-
 export class SlimeRenderer extends BaseRenderer {
 	settings = {
 		// reload required
 		texWidth: 2048,
 		texHeight: 1024,
-		agentCounts: [2050, 2000, 1] as [number, number, number], // vec3
+		agentCount: 2_000_000,
+		startModePos: 'filledCircle',
+		startModeDir: 'fromCenter',
 
 		// currently requires reload but easily refactorable
 		includeBg: false,
@@ -120,7 +33,6 @@ export class SlimeRenderer extends BaseRenderer {
 		moveSpeed: 80,
 		sensorAngle: 25 * (Math.PI / 180), // radian angle of left/right sensors
 		sensorDst: 10,
-		sensorSize: 2, // square radius around sensor center
 		turnSpeed: 20,
 	};
 
@@ -131,7 +43,7 @@ export class SlimeRenderer extends BaseRenderer {
 		evaporateSpeed: new Float32Array(1),
 		evaporateWeight: new Float32Array(4),
 		moveSpeed: new Float32Array(1),
-		agentCounts: new Uint32Array(3),
+		agentCount: new Uint32Array(1),
 		sensorAngle: new Float32Array(1),
 		sensorDst: new Float32Array(1),
 		sensorSize: new Uint32Array(1),
@@ -168,10 +80,6 @@ export class SlimeRenderer extends BaseRenderer {
 	renderPassDescriptor: GPURenderPassDescriptor;
 
 
-	get #totalAgentCount() {
-		return this.settings.agentCounts.reduce((a, b) => a * b);
-	}
-
 	constructor(canvas: HTMLCanvasElement, label: string) {
 		super(canvas, label);
 		this.onStart(() => { console.log("Start!"); });
@@ -190,10 +98,9 @@ export class SlimeRenderer extends BaseRenderer {
 		this.simOptionsData.evaporateSpeed[0] = this.settings.evaporateSpeed;
 		this.simOptionsData.evaporateWeight.set(this.settings.evaporateWeight);
 		this.simOptionsData.moveSpeed[0] = this.settings.moveSpeed;
-		this.simOptionsData.agentCounts.set(this.settings.agentCounts);
+		this.simOptionsData.agentCount[0] = this.settings.agentCount;
 		this.simOptionsData.sensorAngle[0] = this.settings.sensorAngle;
 		this.simOptionsData.sensorDst[0] = this.settings.sensorDst;
-		this.simOptionsData.sensorSize[0] = this.settings.sensorSize;
 		this.simOptionsData.turnSpeed[0] = this.settings.turnSpeed;
 
 		this.simOptionsBuffer.set(this.simOptionsData);
@@ -212,7 +119,7 @@ export class SlimeRenderer extends BaseRenderer {
 		computePass.setBindGroup(0, this.computeBindGroup0);
 		computePass.setBindGroup(1, this.computeBindGroup1);
 		const workgroupSize = 64;
-		const numWorkgroups = Math.ceil(this.#totalAgentCount / workgroupSize);
+		const numWorkgroups = Math.ceil(this.settings.agentCount / workgroupSize);
 		computePass.dispatchWorkgroups(numWorkgroups, 1, 1);
 		computePass.end();
 
@@ -252,7 +159,11 @@ export class SlimeRenderer extends BaseRenderer {
 	protected async makePipeline() {
 		const computeModule = this.device.createShaderModule({
 			label: "slime mold::module::compute",
-			code: computeShaderCode,
+			code: `
+				const i_TEX_DIMENSIONS = vec2i(${this.settings.texWidth}, ${this.settings.texHeight});
+				const f_TEX_DIMENSIONS = vec2f(${this.settings.texWidth}, ${this.settings.texHeight});
+				${computeShaderCode}
+			`,
 		});
 
 		const renderModule = this.device.createShaderModule({
@@ -331,9 +242,9 @@ export class SlimeRenderer extends BaseRenderer {
 		);
 
 		return agentGenerator.getAgents(
-			this.#totalAgentCount,
-			agentGenerator.pos.filledCircle,
-			agentGenerator.dir.fromCenter,
+			this.settings.agentCount,
+			agentGenerator.pos[this.settings.startModePos] ?? agentGenerator.pos.filledCircle,
+			agentGenerator.dir[this.settings.startModeDir] ?? agentGenerator.dir.fromCenter,
 		);
 	}
 
@@ -434,15 +345,14 @@ export class SlimeRenderer extends BaseRenderer {
 			{ usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST },
 			{
 				// MUST BE IN ALPHABETICAL ORDER TO MATCH WGSL STRUCT!
-				diffuseSpeed: { type: 'f32', offset: 0, length: 1 },
+				diffuseSpeed: { offset: 0, length: 1, type: 'f32' },
 				evaporateSpeed: { offset: 4, length: 1, type: 'f32' },
 				evaporateWeight: { offset: 16, length: 4, type: 'f32' },
 				moveSpeed: { offset: 32, length: 1, type: 'f32' },
-				agentCounts: { offset: 48, length: 3, type: 'u32' },
-				sensorAngle: { offset: 60, length: 1, type: 'f32' },
-				sensorDst: { offset: 64, length: 1, type: 'f32' },
-				sensorSize: { offset: 68, length: 1, type: 'u32' },
-				turnSpeed: { offset: 72, length: 1, type: 'f32' },
+				agentCount: { offset: 36, length: 1, type: 'u32' },
+				sensorAngle: { offset: 40, length: 1, type: 'f32' },
+				sensorDst: { offset: 44, length: 1, type: 'f32' },
+				turnSpeed: { offset: 48, length: 1, type: 'f32' },
 			}
 		);
 
