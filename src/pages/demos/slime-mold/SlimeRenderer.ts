@@ -3,7 +3,7 @@ import { SimpleBufferAsset, StructBufferAsset } from "../../../utils/BufferAsset
 
 import renderShaderCode from "./shaders/render.wgsl?raw";
 import computeShaderCode from "./shaders/compute.wgsl?raw";
-import AgentGenerator from "./AgentGenerator";
+import AgentGenerator, { type DirMode, type PosMode } from "./AgentGenerator";
 
 
 const TEXTURE_OPTIONS: GPUSamplerDescriptor = {
@@ -23,8 +23,8 @@ export class SlimeRenderer extends BaseRenderer {
 		get agentCount() {
 			return this.agentCountTrunc * 1_000;
 		},
-		startModePos: 'filledCircle',
-		startModeDir: 'fromCenter',
+		startModePos: 'filledCircle' as PosMode,
+		startModeDir: 'fromCenter' as DirMode,
 
 		// currently requires reload but easily refactorable
 		includeBg: false,
@@ -241,18 +241,29 @@ export class SlimeRenderer extends BaseRenderer {
 	protected async createAssets() {
 		this.#createTextures();
 		this.#createBuffers();
+		await this.#initAgents();
 	}
 
-	#getAgents() {
+	async #initAgents() {
 		const agentGenerator = new AgentGenerator(
 			this.settings.texWidth,
 			this.settings.texHeight,
 		);
 
-		return agentGenerator.getAgents(
+		if (!agentGenerator.dirFunctionNames.includes(this.settings.startModeDir)) {
+			this.settings.startModeDir = 'fromCenter';
+		}
+
+		if (!agentGenerator.posFunctionNames.includes(this.settings.startModePos)) {
+			this.settings.startModePos = 'filledCircle';
+		}
+
+		await agentGenerator.init(
+			this.device,
+			this.agentsBuffer.buffer,
 			this.settings.agentCount,
-			agentGenerator.pos[this.settings.startModePos] ?? agentGenerator.pos.filledCircle,
-			agentGenerator.dir[this.settings.startModeDir] ?? agentGenerator.dir.fromCenter,
+			this.settings.startModePos,
+			this.settings.startModeDir,
 		);
 	}
 
@@ -352,12 +363,12 @@ export class SlimeRenderer extends BaseRenderer {
 			80,
 			{ usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST },
 			{
-				// MUST BE IN ALPHABETICAL ORDER TO MATCH WGSL STRUCT!
-				agentCount: { offset: 36, length: 1, type: 'u32' },
+				// MUST MATCH WGSL STRUCT!
 				diffuseSpeed: { offset: 0, length: 1, type: 'f32' },
 				evaporateSpeed: { offset: 4, length: 1, type: 'f32' },
 				evaporateWeight: { offset: 16, length: 4, type: 'f32' },
 				moveSpeed: { offset: 32, length: 1, type: 'f32' },
+				agentCount: { offset: 36, length: 1, type: 'u32' },
 				sensorAngle: { offset: 40, length: 1, type: 'f32' },
 				sensorDst: { offset: 44, length: 1, type: 'f32' },
 				turnSpeed: { offset: 48, length: 1, type: 'f32' },
@@ -378,10 +389,9 @@ export class SlimeRenderer extends BaseRenderer {
 		);
 
 		// Storage - Agents
-		const sAgentsBufferValues = new Float32Array(this.#getAgents());
 		this.agentsBuffer = new SimpleBufferAsset(
 			this.device,
-			sAgentsBufferValues,
+			new Float32Array(this.settings.agentCount * 4),
 			{ usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST }
 		);
 	}

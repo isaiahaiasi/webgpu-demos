@@ -9,7 +9,6 @@ struct SceneInfo {
     deltaTime: f32,
 };
 
-// ALPHABETICALLY ORDERED
 struct SimOptions {
     diffuseSpeed: f32,
     evaporateSpeed: f32,
