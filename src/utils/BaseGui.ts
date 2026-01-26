@@ -12,6 +12,8 @@ export class BaseGui {
 	protected stats: Stats;
 	protected renderer: BaseRenderer;
 
+	showStats = true;
+
 
 	constructor(renderer: BaseRenderer, label: string = 'basegui') {
 		this.label = label;
@@ -26,6 +28,17 @@ export class BaseGui {
 		this.destroy();
 		this.initStats();
 		await this.initGui();
+
+		this.gui.add(this, "showStats")
+			.name("Show Stats")
+			.onChange((v: boolean) => {
+				if (v) {
+					this.parentElem.prepend(this.stats.dom);
+				} else {
+					this.stats?.dom.remove();
+				}
+			});
+
 		this.parentElem.appendChild(this.stats.dom);
 		this.parentElem.appendChild(this.gui.domElement);
 	}
@@ -40,7 +53,7 @@ export class BaseGui {
 		this.stats = new Stats();
 		this.stats.showPanel(0);
 		this.stats.dom.style.position = 'absolute';
-		this.stats.dom.id = 'life-stats';
+		this.stats.dom.id = `${this.label}-life-stats`;
 	}
 
 	protected async initGui() {

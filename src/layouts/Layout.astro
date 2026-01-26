@@ -1,8 +1,6 @@
 ---
 import DemoNav from '../components/DemoNav.astro';
-
 import '../styles/global.css'
-
 
 export interface Props {
 	title: string;
@@ -24,49 +22,17 @@ const { title } = Astro.props;
 	<body>
 		<div class="app">
 			<DemoNav/>
-			<slot />
+			<div class="content-wrapper">
+				<slot />
+			</div>
 		</div>
 	</body>
 </html>
-<style is:global>
-	:root {
-		--accent: 124, 58, 237;
-		--accent-gradient: linear-gradient(45deg, rgb(var(--accent)), #da62c4 30%, white 60%);
-	}
-	html {
-		font-family: system-ui, sans-serif;
-		color: white;
-		background-color: #0b1526;
-	}
-	body {
-		margin: 0;
-	}
-	main {
-		display: flex;
-		flex-direction: column;
-		text-align: center;
+
+<style>
+	.content-wrapper {
+		min-height: 100dvh;
 		width: 100%;
-		margin: 0 auto;
-		position: relative;
-		align-items: center;
-	}
-
-	.app {
-		height: 100vh;
-		display:flex;
-	}
-
-	canvas {
-		width: 100%;
-		max-width: 1600px;
-	}
-
-	canvas.paused {
-		outline: 1px solid red;
-	}
-
-	code {
-		font-family: Menlo, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono,
-			Bitstream Vera Sans Mono, Courier New, monospace;
+		transition: margin-left 0.3s ease;
 	}
 </style>

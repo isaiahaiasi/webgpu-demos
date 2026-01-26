@@ -6,13 +6,15 @@ import Layout from "../../../layouts/Layout.astro";
 	<main>
 		<h1>Basic Triangle Shader</h1>
 		<div id="wgpu-errors"></div>
-		<canvas id="wgpu-canvas"></canvas>
+		<div class="canvas-container">
+			<canvas id="wgpu-canvas"></canvas>
+		</div>
 	</main>
 </Layout>
 
 <script>
-import { initRender } from "../../../utils/initRender";
-import { TriangleRenderer } from "./TriangleRenderer";
+	import { initRender } from "../../../utils/initRender";
+	import { TriangleRenderer } from "./TriangleRenderer";
 
 	initRender(TriangleRenderer, "triangle");
 </script>
