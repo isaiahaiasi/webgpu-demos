@@ -10,8 +10,8 @@ const presets: Record<string, Partial<LifeRendererSettings>> = {
 		boardHeight: 256,
 		minFrameTime: .1, // minimum frame time in seconds
 		color: {
-			alive: [255 * .35, 255 * .85, 255], // RGB for alive cells
-			dead: [255 * 0.05, 255 * 0.01, 255 * 0.25], // RGB for dead cells
+			alive: [.35, .85, 1], // RGB for alive cells
+			dead: [0.05, 0.01, 0.25], // RGB for dead cells
 		},
 		rules: {
 			initialDensity: 0.16,
@@ -24,7 +24,7 @@ const presets: Record<string, Partial<LifeRendererSettings>> = {
 		boardHeight: 256,
 		minFrameTime: .06, // minimum frame time in seconds
 		color: {
-			alive: [255, 255, 255], // RGB for alive cells
+			alive: [1, 1, 1], // RGB for alive cells
 			dead: [0, 0, 0], // RGB for dead cells
 		},
 		rules: {
@@ -39,7 +39,7 @@ const presets: Record<string, Partial<LifeRendererSettings>> = {
 		minFrameTime: 0.02,
 		color: {
 			alive: [0, 0, 0], // RGB for alive cells
-			dead: [255, 240, 250], // RGB for dead cells
+			dead: [0.92, 0.89, 0.86], // RGB for dead cells
 		},
 		rules: {
 			initialDensity: 0.02,
@@ -51,7 +51,7 @@ const presets: Record<string, Partial<LifeRendererSettings>> = {
 		boardWidth: 512,
 		boardHeight: 256,
 		color: {
-			alive: [20, 180, 230], // RGB for alive cells
+			alive: [0.08, 0.71, 0.90], // RGB for alive cells
 			dead: [0, 0, 0], // RGB for dead cells
 		},
 		rules: {
@@ -65,8 +65,8 @@ const presets: Record<string, Partial<LifeRendererSettings>> = {
 		boardHeight: 512,
 		minFrameTime: .03, // minimum frame time in seconds
 		color: {
-			alive: [20, 230, 100], // RGB for alive cells
-			dead: [50, 40, 10], // RGB for dead cells
+			alive: [0.08, 0.90, 0.39], // RGB for alive cells
+			dead: [0.20, 0.16, 0.04], // RGB for dead cells
 		},
 		rules: {
 			initialDensity: 0.5,

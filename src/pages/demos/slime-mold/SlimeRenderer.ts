@@ -19,7 +19,10 @@ export class SlimeRenderer extends BaseRenderer {
 		// reload required
 		texWidth: 2048,
 		texHeight: 1024,
-		agentCount: 1_000_000,
+		agentCountTrunc: 1_000, // x1000 (truncated for UI purposes...)
+		get agentCount() {
+			return this.agentCountTrunc * 1_000;
+		},
 		startModePos: 'filledCircle',
 		startModeDir: 'fromCenter',
 
@@ -28,8 +31,8 @@ export class SlimeRenderer extends BaseRenderer {
 
 		// no reload
 		evaporateSpeed: 3,
-		evaporateColor: [100, 230, 240, 255],
-		backgroundColor: [30, 0, 70, 255],
+		evaporateColor: [0.39, 0.90, 0.94, 1],
+		backgroundColor: [0.12, 0, 0.27, 1],
 		diffuseSpeed: 50,
 		moveSpeed: 80,
 		sensorAngle: 25 * (Math.PI / 180), // radian angle of left/right sensors
@@ -91,15 +94,13 @@ export class SlimeRenderer extends BaseRenderer {
 		this.sceneInfoArray[1] = deltaTime;
 		this.sceneInfoBuffer.set(this.sceneInfoArray);
 
-		this.bgColorArray.set(
-			[...this.settings.backgroundColor.map((c) => (c / 255))]
-		);
+		this.bgColorArray.set(this.settings.backgroundColor);
 		this.bgColorBuffer.set(this.bgColorArray);
 
 		this.simOptionsData.diffuseSpeed[0] = this.settings.diffuseSpeed;
 		this.simOptionsData.evaporateSpeed[0] = this.settings.evaporateSpeed;
 		this.simOptionsData.evaporateWeight.set(
-			[...this.settings.evaporateColor.map((c) => ((255 - c) / 255))]
+			[...this.settings.evaporateColor.map(c => 1 - c)] // invert color
 		);
 		this.simOptionsData.moveSpeed[0] = this.settings.moveSpeed;
 		this.simOptionsData.agentCount[0] = this.settings.agentCount;

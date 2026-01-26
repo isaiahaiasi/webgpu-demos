@@ -47,11 +47,12 @@ export class LifeGui extends BaseGui {
 
 		dynamicControls.addColor(this.renderer.settings.color, "alive")
 			.name("Alive Color")
-			.onChange(() => this.renderer.updateColorBuffer());
+			.onChange(() => { this.renderer.updateColorBuffer(); });
 		dynamicControls.addColor(this.renderer.settings.color, "dead")
 			.name("Dead Color")
-			.onChange(() => this.renderer.updateColorBuffer());
+			.onChange(() => { this.renderer.updateColorBuffer() });
 
 		dynamicControls.open();
+		console.log(this.renderer.settings.color)
 	}
 }

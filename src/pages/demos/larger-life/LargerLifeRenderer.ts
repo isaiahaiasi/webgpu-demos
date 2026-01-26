@@ -41,8 +41,8 @@ function getDefaultSettings(): LargerLifeRendererSettings {
 		boardHeight: 512,
 		minFrameTime: .1, // minimum frame time in seconds
 		color: {
-			alive: [255,255,255], // RGB for alive cells
-			dead: [0,0,0], // RGB for dead cells
+			alive: [1,1,1,1], // RGB for alive cells
+			dead: [0,0,0,0], // RGB for dead cells
 		},
 		rules: {
 			initialDensity: 0.5,
@@ -190,8 +190,8 @@ const SurvivalRange: array<f32, 2> = array(
 		}
 
 		const colorBufferValues = new Float32Array([
-			...this.settings.color.alive.map(c => c / 255), 0,
-			...this.settings.color.dead.map(c => c / 255), 0,
+			...this.settings.color.alive,
+			...this.settings.color.dead,
 		]);
 
 		this.colorBuffer = this.device.createBuffer({
@@ -277,8 +277,8 @@ const SurvivalRange: array<f32, 2> = array(
 	/** Update GPU uniform buffer with new colors. */
 	updateColorBuffer() {
 		const newColors = new Float32Array([
-			...this.settings.color.alive.map(v => v / 255), 0,
-			...this.settings.color.dead.map(v => v / 255), 0,
+			...this.settings.color.alive,
+			...this.settings.color.dead,
 		]);
 
 		this.device.queue.writeBuffer(this.colorBuffer, 0, newColors);

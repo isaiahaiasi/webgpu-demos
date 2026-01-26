@@ -81,6 +81,5 @@ export class LargerLifeGui extends BaseGui {
 		dynamicControls.addColor(this.renderer.settings.color, "dead")
 			.name("Dead Color")
 			.onChange(() => this.renderer.updateColorBuffer());
-
 	}
 }

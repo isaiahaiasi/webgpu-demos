@@ -1,12 +1,6 @@
-import type { GUI } from 'dat.gui';
+import { GUI } from 'lil-gui';
 import Stats from 'stats.js';
 import type { BaseRenderer } from './BaseRenderer';
-
-
-// dat.gui assumes DOM is available, so we import it dynamically to avoid
-// issues with Astro SSG attempting to process at build time.
-// import('dat.gui');
-let dat: any;
 
 
 export class BaseGui {
@@ -55,11 +49,7 @@ export class BaseGui {
 	}
 
 	protected async initGui() {
-		// dat.gui assumes DOM is available, so we import it dynamically to avoid
-		// issues with Astro SSG attempting to process at build time.
-		dat = dat ?? await import('dat.gui');
-
-		this.gui = new dat.GUI({ name: `${this.label}::gui`, autoPlace: false });
+		this.gui = new GUI({ autoPlace: false });
 		this.gui.domElement.id = `${this.label}-gui`;
 		this.gui.domElement.style.position = 'absolute';
 		this.gui.domElement.style.top = '0';

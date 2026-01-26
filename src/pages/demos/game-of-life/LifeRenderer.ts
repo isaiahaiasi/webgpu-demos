@@ -27,8 +27,8 @@ function getDefaultSettings(): LifeRendererSettings {
 		boardHeight: 256,
 		minFrameTime: .1, // minimum frame time in seconds
 		color: {
-			alive: [255 * .35, 255 * .85, 255], // RGB for alive cells
-			dead: [255 * 0.15, 0, 255 * 0.25], // RGB for dead cells
+			alive: [.35, .85, 1], // RGB for alive cells
+			dead: [0.15, 0, 0.25], // RGB for dead cells
 		},
 		rules: {
 			initialDensity: 0.2,
@@ -170,8 +170,8 @@ const SURVIVAL_MAP: array<u32, 9> = array(${getStateMap(this.settings.rules.surv
 		}
 
 		const colorBufferValues = new Float32Array([
-			...this.settings.color.alive.map(c => c / 255), 0,
-			...this.settings.color.dead.map(c => c / 255), 0,
+			...this.settings.color.alive, 0,
+			...this.settings.color.dead, 0,
 		]);
 
 		this.colorBuffer = this.device.createBuffer({
@@ -257,8 +257,8 @@ const SURVIVAL_MAP: array<u32, 9> = array(${getStateMap(this.settings.rules.surv
 	/** Update GPU uniform buffer with new colors. */
 	updateColorBuffer() {
 		const newColors = new Float32Array([
-			...this.settings.color.alive.map(v => v / 255), 0,
-			...this.settings.color.dead.map(v => v / 255), 0,
+			...this.settings.color.alive, 1,
+			...this.settings.color.dead, 1,
 		]);
 
 		this.device.queue.writeBuffer(this.colorBuffer, 0, newColors);

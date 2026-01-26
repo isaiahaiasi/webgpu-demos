@@ -10,14 +10,14 @@
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^5.16.6",
-    "dat.gui": "^0.7.9",
+    "astro": "^5.16.8",
+    "lil-gui": "^0.21.0",
     "stats.js": "^0.17.0",
     "wgpu-matrix": "^3.4.0"
   },
   "devDependencies": {
-    "@types/dat.gui": "^0.7.10",
-    "@types/node": "^25.0.3",
+    "@types/dat.gui": "^0.7.13",
+    "@types/node": "^25.0.6",
     "@types/stats": "^0.16.30",
     "@webgpu/types": "^0.1.68"
   }

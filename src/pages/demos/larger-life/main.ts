@@ -59,7 +59,6 @@ export async function main(
 	handlePause(canvas, currentRenderer);
 
 	try {
-		await currentGui.init();
 		await currentRenderer.initialize();
 
 	} finally {
