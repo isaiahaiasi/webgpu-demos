@@ -21,9 +21,9 @@ import Layout from "../../../layouts/Layout.astro";
 </Layout>
 
 <script>
-	import { main } from "./main";
+	import { RendererHandler } from "./main";
 	
-	main('wgpu-canvas', 'wgpu-errors');
+	new RendererHandler('wgpu-canvas', 'wgpu-errors');
 </script>
 
 <style>

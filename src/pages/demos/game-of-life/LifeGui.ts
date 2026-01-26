@@ -53,6 +53,5 @@ export class LifeGui extends BaseGui {
 			.onChange(() => { this.renderer.updateColorBuffer() });
 
 		dynamicControls.open();
-		console.log(this.renderer.settings.color)
 	}
 }

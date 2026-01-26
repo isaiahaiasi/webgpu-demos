@@ -1,8 +1,7 @@
 import type { BaseRenderer } from "./BaseRenderer";
+import { PauseHandler } from "./PauseHandler";
 
-// NOTE: This probably doesn't need to be generic.
-// NOTE: Each demo might have different functionality (eg pausing)
-// NOTE: Or have different subscribers (eg for GUI/Stats)
+
 export async function initRender(
 	rendererConstructor: new (c: HTMLCanvasElement, label: string) => BaseRenderer,
 	rendererLabel: string,
@@ -17,15 +16,7 @@ export async function initRender(
 
 	const renderer = new rendererConstructor(canvas, rendererLabel);
 
-	canvas.addEventListener("click", () => {
-		if (renderer.loop.paused) {
-			renderer.loop.start();
-			canvas.classList.remove('paused')
-		} else {
-			renderer.loop.stop();
-			canvas.classList.add('paused')
-		}
-	});
+	new PauseHandler(canvas).init(renderer);
 
 	try {
 

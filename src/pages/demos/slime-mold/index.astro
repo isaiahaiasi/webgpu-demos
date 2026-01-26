@@ -10,6 +10,8 @@ import Layout from "../../../layouts/Layout.astro";
 </Layout>
 
 <script>
+	// TODO: handle errors
+	import { PauseHandler } from "../../../utils/PauseHandler";
 	import { SlimeGui } from "./SlimeGui";
 	import { SlimeRenderer } from "./SlimeRenderer";
 
@@ -22,16 +24,7 @@ import Layout from "../../../layouts/Layout.astro";
 
 	const renderer = new SlimeRenderer(canvas, "slime");
 	new SlimeGui(renderer);
-
-	canvas.addEventListener("click", () => {
-		if (renderer.loop.paused) {
-			renderer.loop.start();
-			canvas.classList.remove("paused");
-		} else {
-			renderer.loop.stop();
-			canvas.classList.add("paused");
-		}
-	});
+	new PauseHandler(canvas).init(renderer);
 
 	await renderer.initialize();
 </script>
