@@ -3,20 +3,20 @@ import { BaseRenderer } from "../../../utils/BaseRenderer";
 
 
 export type LifeRendererSettings = {
-		workGroupSize: number; // Options: 4, 8, 16
-		boardWidth: number;
-		boardHeight: number;
-		minFrameTime: number; // minimum frame time in seconds
-		color: {
-			alive: number[], // RGB for alive cells
-			dead: number[], // RGB for dead cells
-		};
-		rules: {
-			initialDensity: number,
-			birth: number[],
-			survival: number[],
-		};
+	workGroupSize: number; // Options: 4, 8, 16
+	boardWidth: number;
+	boardHeight: number;
+	minFrameTime: number; // minimum frame time in seconds
+	color: {
+		alive: number[], // RGB for alive cells
+		dead: number[], // RGB for dead cells
 	};
+	rules: {
+		initialDensity: number,
+		birth: number[],
+		survival: number[],
+	};
+};
 
 
 /** This is a function to avoid multiple renderers sharing the same reference. */
@@ -33,14 +33,14 @@ function getDefaultSettings(): LifeRendererSettings {
 		rules: {
 			initialDensity: 0.2,
 			birth: [3],
-			survival: [2,3],
+			survival: [2, 3],
 		}
 	};
 }
 
 
 export class LifeRenderer extends BaseRenderer {
-	settings: LifeRendererSettings;
+	settings = getDefaultSettings();
 
 	// Rendering state
 	currentBindGroupIndex: 1 | 0 = 0; // Ping Pong Buffer index
@@ -60,14 +60,10 @@ export class LifeRenderer extends BaseRenderer {
 	renderPassDesc: GPURenderPassDescriptor;
 
 
-	constructor(
-		canvas: HTMLCanvasElement,
-		settings?: Partial<LifeRendererSettings>,
-		label = "life") {
-			super(canvas, label);
-			this.settings = {...getDefaultSettings(), ...settings};
+	async initialize(settings?: Partial<LifeRendererSettings>) {
+		this.settings = { ...this.settings, ...settings };
+		super.initialize();
 	}
-
 
 	async restart() {
 		this.currentBindGroupIndex = 0;

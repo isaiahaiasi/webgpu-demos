@@ -13,18 +13,17 @@ export class BaseGui {
 	protected renderer: BaseRenderer;
 
 
-	constructor(renderer: BaseRenderer, label: string = 'base') {
-		this.renderer = renderer;
-		this.renderer.onRender(() => { this.stats?.update() });
-
-		this.renderer.onStart(async () => { await this.init(); });
-
-		this.parentElem = this.renderer.canvas.parentElement;
+	constructor(renderer: BaseRenderer, label: string = 'basegui') {
 		this.label = label;
+		this.renderer = renderer;
+		this.parentElem = this.renderer.canvas.parentElement;
+
+		this.renderer.onRender(() => { this.stats?.update() });
+		this.renderer.onStart(async () => { await this.init(); });
 	}
 
 	async init() {
-		this.#cleanup();
+		this.destroy();
 		this.initStats();
 		await this.initGui();
 		this.parentElem.appendChild(this.stats.dom);
@@ -32,10 +31,6 @@ export class BaseGui {
 	}
 
 	destroy() {
-		this.#cleanup();
-	}
-
-	#cleanup() {
 		this.stats?.dom.remove();
 		this.gui?.domElement.remove();
 		this.gui?.destroy();
