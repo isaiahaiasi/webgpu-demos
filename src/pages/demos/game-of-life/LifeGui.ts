@@ -36,8 +36,6 @@ export class LifeGui extends BaseGui {
 				this.renderer.restart();
 			});
 
-		staticControls.open();
-
 		// Controls that can update live
 		const dynamicControls = this.gui.addFolder("Dynamic");
 		dynamicControls.add(
@@ -52,6 +50,5 @@ export class LifeGui extends BaseGui {
 			.name("Dead Color")
 			.onChange(() => { this.renderer.updateColorBuffer() });
 
-		dynamicControls.open();
 	}
 }

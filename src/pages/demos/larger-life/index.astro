@@ -6,36 +6,37 @@ import Layout from "../../../layouts/Layout.astro";
 	<main>
 		<header>
 			<h1>More Cellular Automata</h1>
-			<div class="subheading">"Larger Life" <span class="warn">(Work in progress!)</span></div>
-			<p>Adds support for larger neighborhoods, allowing more complex behaviors.
-			Current ruleset: "Bosco's Rule" (aka "Bugs") by Kellie Evans</p>
+			<span class="subheading">"Larger Life"</span>
 		</header>
+		<p>
+			Adds support for larger neighborhoods, allowing more complex
+			behaviors. Current ruleset: "Bosco's Rule" (aka "Bugs") by Kellie
+			Evans
+		</p>
+		<div>
+			<div class="warn">FLASHING LIGHTS WARNING!</div>
+		</div>
 		<div id="wgpu-errors"></div>
 		<div class="canvas-container">
 			<canvas id="wgpu-canvas"></canvas>
+			<div id="gui-container" class="gui-container"></div>
 		</div>
 	</main>
 </Layout>
 
 <script>
 	import { main } from "./main";
-	
-	main('wgpu-canvas', 'wgpu-errors');
+
+	main("wgpu-canvas", "wgpu-errors", "gui-container");
 </script>
 
 <style>
-	header {
-		margin: 1rem;
-	}
-
-	h1 {
-		margin: 0;
-	}
-
 	.warn {
-		background-color: coral;
+		background-color: rgb(216, 74, 22);
 		border-radius: 5px;
 		font-weight: bold;
-		padding: 4px;
+		padding: 4px 6px 5px 6px;
+		margin: 0.5rem auto;
+		text-align:center;
 	}
 </style>

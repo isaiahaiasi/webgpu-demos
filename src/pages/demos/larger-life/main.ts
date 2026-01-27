@@ -4,8 +4,9 @@ import { LargerLifeRenderer } from "./LargerLifeRenderer";
 
 
 export async function main(
-	canvasId = "wgpu-canvas",
-	errorsContainerId = "wgpu-errors",
+	canvasId: string,
+	errorsContainerId: string,
+	guiContainerId: string,
 ) {
 
 	const canvas = <HTMLCanvasElement>document.getElementById(canvasId);
@@ -15,7 +16,7 @@ export async function main(
 	}
 
 	const renderer = new LargerLifeRenderer(canvas);
-	new LargerLifeGui(renderer);
+	new LargerLifeGui(renderer, guiContainerId, 'largerlife');
 	new PauseHandler(canvas).init(renderer);
 
 	try {

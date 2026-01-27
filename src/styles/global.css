@@ -1,7 +1,25 @@
+:root {
+	--col-gray-0: #111113;
+	--col-gray-1: #141419;
+	--col-gray-2: #1b1b1e;
+	--col-gray-3: #252529;
+
+	--col-blue-0: #183279;
+	--col-blue-1: #2d58b4;
+	--col-blue-2: #3b82f6;
+}
+
 html {
 	font-family: system-ui, sans-serif;
 	color: white;
-	background-color: #252529;
+	background-color: var(--col-gray-3);
+	box-sizing: border-box;
+}
+
+*,
+*:before,
+*:after {
+	box-sizing: inherit;
 }
 
 body {
@@ -25,11 +43,7 @@ main {
 }
 
 canvas {
-	width: 100%;
-}
-
-canvas.paused {
-	outline: 1px solid red;
+	display: block;
 }
 
 code {
@@ -40,7 +54,7 @@ code {
 button {
 	padding: 0.75rem 1.5rem;
 	margin: 0.5rem;
-	background-color: #2d58b4;
+	background-color: var(--col-blue-1);
 	color: white;
 	border: none;
 	border-radius: 0.375rem;
@@ -51,7 +65,7 @@ button {
 }
 
 button:hover {
-	background-color: #183279;
+	background-color: var(--col-blue-0);
 }
 
 button:active {
@@ -59,14 +73,40 @@ button:active {
 }
 
 button:focus {
-	outline: 2px solid #3b82f6;
+	outline: 2px solid var(--col-blue-2);
 	outline-offset: 2px;
 }
 
 .canvas-container {
 	position: relative;
-	max-width: 1600px;
 	width: 100%;
 	margin: 0;
-	padding-top: 2rem;
+	background-color: var(--col-gray-1);
+	display: flex;
+	flex-direction: column;
+
+
+	@media (min-width: 1024px) {
+		flex-direction: column-reverse;
+	}
+}
+
+.canvas-container canvas {
+	margin: auto;
+	width: 100%;
+	max-width: 1600px;
+
+	&.paused {
+		outline: 1px solid red;
+	}
+}
+
+.gui-container {
+	position: relative;
+	width: 100%;
+	
+	@media (min-width: 1024px) {
+		width: calc(100% - 2rem);
+		margin: 0 1rem;
+	}
 }

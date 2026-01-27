@@ -88,6 +88,7 @@ export class RendererHandler {
 	constructor(
 		canvasId = "wgpu-canvas",
 		errorsContainerId = "wgpu-errors",
+		guiContainerId = "wgpu-gui",
 		presetsContainerId = "life-presets",
 	) {
 		this.canvas = <HTMLCanvasElement>document.getElementById(canvasId);
@@ -110,7 +111,7 @@ export class RendererHandler {
 		});
 
 		this.renderer = new LifeRenderer(this.canvas, "life");
-		this.gui = new LifeGui(this.renderer);
+		this.gui = new LifeGui(this.renderer, guiContainerId);
 		new PauseHandler(this.canvas).init(this.renderer);
 
 		this.init('conway');

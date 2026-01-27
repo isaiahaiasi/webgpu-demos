@@ -7,7 +7,7 @@ export class BaseGui {
 
 	label: string;
 
-	protected parentElem: HTMLElement; 
+	protected container: HTMLElement;
 	protected gui: GUI;
 	protected stats: Stats;
 	protected renderer: BaseRenderer;
@@ -15,10 +15,13 @@ export class BaseGui {
 	showStats = true;
 
 
-	constructor(renderer: BaseRenderer, label: string = 'basegui') {
-		this.label = label;
+	constructor(renderer: BaseRenderer, containerId?: string, label?: string) {
+		this.label = label ?? 'gui_BASE';
 		this.renderer = renderer;
-		this.parentElem = this.renderer.canvas.parentElement;
+
+		this.container = containerId
+			? document.getElementById(containerId)
+			: this.renderer.canvas.parentElement;
 
 		this.renderer.onRender(() => { this.stats?.update() });
 		this.renderer.onStart(async () => { await this.init(); });
@@ -33,14 +36,14 @@ export class BaseGui {
 			.name("Show Stats")
 			.onChange((v: boolean) => {
 				if (v) {
-					this.parentElem.prepend(this.stats.dom);
+					this.container.prepend(this.stats.dom);
 				} else {
 					this.stats?.dom.remove();
 				}
 			});
 
-		this.parentElem.appendChild(this.stats.dom);
-		this.parentElem.appendChild(this.gui.domElement);
+		this.container.appendChild(this.stats.dom);
+		this.container.appendChild(this.gui.domElement);
 	}
 
 	destroy() {
@@ -53,7 +56,7 @@ export class BaseGui {
 		this.stats = new Stats();
 		this.stats.showPanel(0);
 		this.stats.dom.style.position = 'absolute';
-		this.stats.dom.id = `${this.label}-life-stats`;
+		this.stats.dom.id = `${this.label}-stats`;
 	}
 
 	protected async initGui() {

@@ -8,7 +8,6 @@ export class SlimeGui extends BaseGui {
 		await super.initGui();
 
 		const initialOpts = this.gui.addFolder("Initial");
-		initialOpts.open();
 
 		initialOpts.add(this.renderer.settings, "agentCountTrunc", 1, 4_000, 1)
 			.name("agents (x1k)")
@@ -39,7 +38,6 @@ export class SlimeGui extends BaseGui {
 			.onFinishChange(() => this.renderer.restart());
 
 		const dynamicOpts = this.gui.addFolder("Dynamic");
-		dynamicOpts.open();
 		dynamicOpts.addColor(this.renderer.settings, "backgroundColor")
 			.name("bgCol");
 		dynamicOpts.addColor(this.renderer.settings, "evaporateColor")

@@ -106,8 +106,10 @@ export abstract class BaseRenderer {
 			this.#fail(`WebGPU device was lost: ${info.message}`);
 
 			// "reason" will be "destroyed" if we *intentionally* destroy the device
-			if (info.reason !== "destroyed") {
-				// try again?
+			if (info.reason === "destroyed") {
+				this.loop.pubsub.call("stop");
+			} else {
+				// TODO: try again?
 			}
 		});
 

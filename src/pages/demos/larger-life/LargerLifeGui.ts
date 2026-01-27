@@ -2,6 +2,7 @@ import { BaseGui } from "../../../utils/BaseGui";
 import type { LargerLifeRenderer } from "./LargerLifeRenderer";
 
 export class LargerLifeGui extends BaseGui {
+
 	declare renderer: LargerLifeRenderer;
 
 	async initGui() {
@@ -11,7 +12,6 @@ export class LargerLifeGui extends BaseGui {
 
 	addControls() {
 		const staticControls = this.gui.addFolder("Static");
-		staticControls.open();
 		staticControls.add(this.renderer.settings, "workGroupSize", [4, 8, 16])
 			.name("WorkGroupSize")
 			.onFinishChange(() => {
@@ -36,7 +36,6 @@ export class LargerLifeGui extends BaseGui {
 
 		// Currently static but should be converted to Uniforms
 		const ruleControls = this.gui.addFolder("Rules");
-		ruleControls.open();
 		ruleControls.add(this.renderer.settings.rules, "includeSelf")
 			.name("IncludeSelf")
 			.onFinishChange(() => {
@@ -69,7 +68,6 @@ export class LargerLifeGui extends BaseGui {
 			});
 
 		const dynamicControls = this.gui.addFolder("Dynamic");
-		dynamicControls.open();
 		dynamicControls.add(
 			this.renderer.settings,
 			"minFrameTime", 0, 1, 0.01)
