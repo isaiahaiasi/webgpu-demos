@@ -1,16 +1,16 @@
 ---
-import {demoData} from '../data/demos';
+import { demoData } from "../data/demos";
 
 const demos = Object.keys(demoData)
-  .map(slug => ({
-    url: `/demos/${slug}`,
-    name: slug,
-    title: demoData[slug].title
-  }))
-  .sort((a, b) => 
-    (demoData[a.name]?.order ?? 999) -
-    (demoData[b.name]?.order ?? 999)
-  );
+	.map((slug) => ({
+		url: `/demos/${slug}`,
+		name: slug,
+		title: demoData[slug].title,
+	}))
+	.sort(
+		(a, b) =>
+			(demoData[a.name]?.order ?? 999) - (demoData[b.name]?.order ?? 999),
+	);
 
 const currentPath = Astro.url.pathname;
 ---
@@ -23,16 +23,22 @@ const currentPath = Astro.url.pathname;
 	<a href="/" class="home-link">Demos</a>
 
 	<div class="demo-links">
-		{demos.map(demo => (
-			<a
-				href={demo.url}
-				class:list={['demo-link', { active: currentPath.includes(demo.name) }]}
-			>
-				{demo.title}
-			</a>
-		))}
+		{
+			demos.map((demo) => (
+				<a
+					href={demo.url}
+					class:list={[
+						"demo-link",
+						{ active: currentPath.includes(demo.name) },
+					]}
+				>
+					{demo.title}
+				</a>
+			))
+		}
 	</div>
 </nav>
+
 <button class="menu-toggle" aria-label="Toggle menu">
 	<span class="hamburger"></span>
 </button>
@@ -48,20 +54,45 @@ const currentPath = Astro.url.pathname;
 		width: 3.5rem;
 		height: 3.5rem;
 		border-radius: 50%;
-		background: var(--col-gray-2);
+		background: rgba(30, 30, 35, 0.95);
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		cursor: pointer;
 		z-index: 10002;
-		display: flex;
 		align-items: center;
 		justify-content: center;
 		padding: 0;
 		margin: 0;
 		transition: background 0.2s;
-	}
+		/* Mobile: always visible. Desktop: hidden by default (visible when menu closed) */
+		display: flex;
 
-	.menu-toggle:hover {
-		background: var(--col-gray-3);
+		&:hover {
+			background: rgba(40, 40, 45, 0.95);
+		}
+
+		&.is-open .hamburger {
+			background: transparent;
+
+			&::before {
+				transform: rotate(45deg);
+				top: 0;
+			}
+
+			&::after {
+				transform: rotate(-45deg);
+				bottom: 0;
+			}
+		}
+
+		@media (min-width: 1024px) {
+			display: none;
+
+			&.visible {
+				display: flex;
+				top: 1.5rem;
+				bottom: auto;
+			}
+		}
 	}
 
 	/* Hamburger icon */
@@ -71,39 +102,29 @@ const currentPath = Astro.url.pathname;
 		height: 2px;
 		background: rgba(255, 255, 255, 0.9);
 		display: block;
-	}
+		transition: background 0.2s;
 
-	.hamburger::before,
-	.hamburger::after {
-		content: '';
-		position: absolute;
-		width: 100%;
-		height: 2px;
-		background: rgba(255, 255, 255, 0.9);
-		left: 0;
-	}
+		&::before,
+		&::after {
+			content: "";
+			position: absolute;
+			width: 100%;
+			height: 2px;
+			background: rgba(255, 255, 255, 0.9);
+			left: 0;
+			transition:
+				transform 0.2s,
+				top 0.2s,
+				bottom 0.2s;
+		}
 
-	.hamburger::before {
-		top: -0.5rem;
-	}
+		&::before {
+			top: -0.5rem;
+		}
 
-	.hamburger::after {
-		bottom: -0.5rem;
-	}
-
-	/* Transform to X when menu is open */
-	.menu-toggle.open .hamburger {
-		background: transparent;
-	}
-
-	.menu-toggle.open .hamburger::before {
-		transform: rotate(45deg);
-		top: 0;
-	}
-
-	.menu-toggle.open .hamburger::after {
-		transform: rotate(-45deg);
-		bottom: 0;
+		&::after {
+			bottom: -0.5rem;
+		}
 	}
 
 	/* Close button inside menu */
@@ -118,39 +139,44 @@ const currentPath = Astro.url.pathname;
 		cursor: pointer;
 		padding: 0;
 		margin: 0;
-		display: flex;
 		align-items: center;
 		justify-content: center;
-	}
+		/* Mobile: hidden by default. Desktop: hidden by default. Shown by JS when menu is open */
+		display: none;
 
-	.menu-close:hover {
-		background: rgba(255, 255, 255, 0.1);
-		border-radius: 4px;
+		&:hover {
+			background: rgba(255, 255, 255, 0.1);
+			border-radius: 4px;
+		}
+
+		&.visible {
+			display: flex;
+		}
 	}
 
 	.close-icon {
 		position: relative;
 		width: 1.25rem;
 		height: 1.25rem;
-	}
 
-	.close-icon::before,
-	.close-icon::after {
-		content: '';
-		position: absolute;
-		width: 1.25rem;
-		height: 2px;
-		background: rgba(255, 255, 255, 0.7);
-		top: 50%;
-		left: 0;
-	}
+		&::before,
+		&::after {
+			content: "";
+			position: absolute;
+			width: 1.25rem;
+			height: 2px;
+			background: rgba(255, 255, 255, 0.7);
+			top: 50%;
+			left: 0;
+		}
 
-	.close-icon::before {
-		transform: rotate(45deg);
-	}
+		&::before {
+			transform: rotate(45deg);
+		}
 
-	.close-icon::after {
-		transform: rotate(-45deg);
+		&::after {
+			transform: rotate(-45deg);
+		}
 	}
 
 	/* Overlay for mobile */
@@ -163,6 +189,10 @@ const currentPath = Astro.url.pathname;
 		bottom: 0;
 		background: rgba(0, 0, 0, 0.5);
 		z-index: 9999;
+
+		&.visible {
+			display: block;
+		}
 	}
 
 	/* Navigation menu */
@@ -172,14 +202,14 @@ const currentPath = Astro.url.pathname;
 		left: 0;
 		height: 100dvh;
 		width: 280px;
-		background: var(--col-gray-1);
+		background: rgba(20, 20, 25, 0.98);
+		backdrop-filter: blur(10px);
 		border-right: 1px solid rgba(255, 255, 255, 0.1);
 		display: flex;
 		flex-direction: column;
-		align-items: left;
 		gap: 2rem;
 		padding: 3rem 1.5rem 2rem;
-		z-index: 10001; /* stats.js is z-index: 10_000 by default */
+		z-index: 10001;
 		overflow-y: auto;
 	}
 
@@ -205,120 +235,134 @@ const currentPath = Astro.url.pathname;
 		border-radius: 6px;
 		transition: all 0.2s;
 		font-size: 0.95rem;
+
+		&:hover {
+			color: white;
+			background: rgba(255, 255, 255, 0.08);
+		}
+
+		&.active {
+			color: white;
+			background: rgba(102, 126, 234, 0.3);
+			border-left: 3px solid #667eea;
+		}
 	}
 
-	.demo-link:hover {
-		color: white;
-		background: rgba(255, 255, 255, 0.08);
-	}
-
-	.demo-link.active {
-		color: white;
-		background: rgba(102, 126, 234, 0.3);
-		border-left: 3px solid #667eea;
-	}
-
-	/* Mobile styles (< 1024px) */
+	/* Mobile: default closed, slide in when user opens */
 	@media (max-width: 1023px) {
 		.demo-nav {
 			transform: translateX(-100%);
 			width: 90%;
-		}
 
-		.demo-nav.open {
-			transform: translateX(0);
-		}
-
-		.menu-overlay.open {
-			display: block;
+			&.user-opened {
+				transform: translateX(0);
+			}
 		}
 	}
 
-	/* Desktop styles (>= 1024px) */
+	/* Desktop: default open, hide when user closes */
 	@media (min-width: 1024px) {
-		.menu-toggle {
-			display: none;
-		}
-
-		/* Only show FAB when menu is explicitly closed on desktop */
-		.demo-nav.closed ~ .menu-toggle {
-			display: flex;
-			top: 1.5rem;
-		}
-
 		.demo-nav {
 			position: relative;
 			height: auto;
-			width: 280px;
-		}
+			transform: translateX(0);
 
-		/* When closed on desktop, hide it */
-		.demo-nav.closed {
-			width: 0;
-			padding: 0;
-			border: none;
-			overflow: hidden;
+			&.user-closed {
+				transform: translateX(-100%);
+				width: 0;
+				padding: 0;
+				border: none;
+				overflow: hidden;
+			}
 		}
 	}
 </style>
 
 <script>
-	const menuToggle = document.querySelector('.menu-toggle');
-	const menuClose = document.querySelector('.menu-close');
-	const menu = document.querySelector('.demo-nav');
-	const overlay = document.querySelector('.menu-overlay');
+	const DESKTOP_BREAKPOINT = 1024;
 
-	const desktopBreakpoint = 1024; // this really shouldn't be hard-coded here
+	const menuToggle = document.querySelector(".menu-toggle");
+	const menuClose = document.querySelector(".menu-close");
+	const menu = document.querySelector(".demo-nav");
+	const overlay = document.querySelector(".menu-overlay");
 
-	function isMenuOpen() {
-		const isDesktop = window.innerWidth >= desktopBreakpoint;
-		return isDesktop 
-			? !menu?.classList.contains('closed')
-			: menu?.classList.contains('open');
+	// Three-state tracking: null (default), true (user opened), false (user closed)
+	let userInteraction: boolean | null = null;
+
+	function isMobile() {
+		return window.innerWidth < DESKTOP_BREAKPOINT;
 	}
 
-	function syncToggleAndOverlay() {
-		const menuOpen = isMenuOpen();
-		menuToggle?.classList.toggle('open', menuOpen);
-		overlay?.classList.toggle('open', menuOpen);
-	}
-
-	function toggleMenu() {
-		const isDesktop = window.innerWidth >= desktopBreakpoint;
-		
-		if (isDesktop) {
-			menu?.classList.toggle('closed');
-		} else {
-			menu?.classList.toggle('open');
+	function shouldMenuBeOpen() {
+		if (userInteraction === null) {
+			// Default state: mobile closed, desktop open
+			return !isMobile();
 		}
-		
-		syncToggleAndOverlay();
+		// User has interacted: respect their choice
+		return userInteraction;
+	}
+
+	function updateUI() {
+		const menuOpen = shouldMenuBeOpen();
+		const mobile = isMobile();
+
+		// Mobile: add user-opened if user opened it
+		// Desktop: add user-closed if user closed it
+		// Otherwise: go with default.
+		if (userInteraction !== null) {
+			if (mobile) {
+				menu?.classList.toggle("user-opened", userInteraction);
+				menu?.classList.remove("user-closed");
+			} else {
+				menu?.classList.toggle("user-closed", !userInteraction);
+				menu?.classList.remove("user-opened");
+			}
+		}
+
+		// Update close button (visible when menu is open)
+		menuClose?.classList.toggle("visible", menuOpen);
+
+		// Update toggle button
+		// Mobile: always visible
+		// Desktop: only visible when menu is closed
+		const toggleVisible = mobile || !menuOpen;
+		menuToggle?.classList.toggle("visible", toggleVisible);
+		menuToggle?.classList.toggle("is-open", menuOpen);
+
+		// Update overlay (mobile only, when open)
+		overlay?.classList.toggle("visible", mobile && menuOpen);
+	}
+
+	function openMenu() {
+		userInteraction = true;
+		updateUI();
 	}
 
 	function closeMenu() {
-		const isDesktop = window.innerWidth >= desktopBreakpoint;
+		userInteraction = false;
+		updateUI();
+	}
 
-		if (isDesktop) {
-			menu?.classList.add('closed');
+	function toggleMenu() {
+		if (shouldMenuBeOpen()) {
+			closeMenu();
 		} else {
-			menu?.classList.remove('open');
+			openMenu();
 		}
-		
-		syncToggleAndOverlay();
 	}
 
 	// Event listeners
-	menuToggle?.addEventListener('click', toggleMenu);
-	menuClose?.addEventListener('click', closeMenu);
-	overlay?.addEventListener('click', closeMenu);
+	menuToggle?.addEventListener("click", toggleMenu);
+	menuClose?.addEventListener("click", closeMenu);
+	overlay?.addEventListener("click", closeMenu);
 
-	// Close on Escape key
-	document.addEventListener('keydown', (e) => {
-		if (e.key === 'Escape' && isMenuOpen()) {
+	document.addEventListener("keydown", (e) => {
+		if (e.key === "Escape" && shouldMenuBeOpen()) {
 			closeMenu();
 		}
 	});
 
-	// Sync on resize to handle state changes between mobile/desktop
-	window.addEventListener('resize', syncToggleAndOverlay);
+	window.addEventListener("resize", updateUI);
+
+	updateUI();
 </script>
