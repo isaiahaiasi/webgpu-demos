@@ -76,7 +76,8 @@ export class SlimeRenderer extends BaseRenderer {
 	computeBindGroup0: GPUBindGroup;
 	computeBindGroup1: GPUBindGroup;
 	computeBindGroup2: GPUBindGroup;
-	renderBindGroup: GPUBindGroup;
+	renderBindGroup1: GPUBindGroup;
+	renderBindGroup2: GPUBindGroup;
 
 	//Pipelines
 	computeUpdatePipeline: GPUComputePipeline;
@@ -89,14 +90,15 @@ export class SlimeRenderer extends BaseRenderer {
 	protected render(deltaTime: number): boolean {
 
 		this.renderPassDescriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
-
+		
 		this.sceneInfoArray[0] = deltaTime;
 		this.sceneInfoArray[1] = deltaTime;
 		this.sceneInfoBuffer.set(this.sceneInfoArray);
-
+		
 		this.bgColorArray.set(this.settings.backgroundColor);
 		this.bgColorBuffer.set(this.bgColorArray);
-
+		
+		// TODO: find a cleaner way to do all this *without* extra allocations.
 		this.simOptionsData.diffuseSpeed[0] = this.settings.diffuseSpeed;
 		this.simOptionsData.evaporateSpeed[0] = this.settings.evaporateSpeed;
 		this.simOptionsData.evaporateWeight.set(
@@ -113,10 +115,12 @@ export class SlimeRenderer extends BaseRenderer {
 
 		const encoder = this.device.createCommandEncoder({ label: "slime mold::encoder" });
 
+		const pingPong = this.loop.frameCount % 2 === 0;
+
 		let computePass = encoder.beginComputePass();
 		computePass.setPipeline(this.computeUpdatePipeline);
 		computePass.setBindGroup(0, this.computeBindGroup0);
-		computePass.setBindGroup(1, this.computeBindGroup1);
+		computePass.setBindGroup(1, pingPong ? this.computeBindGroup1 : this.computeBindGroup2);
 		const workgroupSize = 64;
 		const numWorkgroups = Math.ceil(this.settings.agentCount / workgroupSize);
 		computePass.dispatchWorkgroups(numWorkgroups, 1, 1);
@@ -125,7 +129,7 @@ export class SlimeRenderer extends BaseRenderer {
 		computePass = encoder.beginComputePass();
 		computePass.setPipeline(this.computeProcessPipeline);
 		computePass.setBindGroup(0, this.computeBindGroup0);
-		computePass.setBindGroup(1, this.computeBindGroup2);
+		computePass.setBindGroup(1, pingPong ? this.computeBindGroup2 : this.computeBindGroup1);
 		computePass.dispatchWorkgroups(
 			Math.ceil(this.settings.texWidth / 16),
 			Math.ceil(this.settings.texHeight / 16)
@@ -139,15 +143,11 @@ export class SlimeRenderer extends BaseRenderer {
 		const renderPass = encoder.beginRenderPass(this.renderPassDescriptor);
 		renderPass.setPipeline(this.renderPipeline);
 
-		renderPass.setBindGroup(0, this.renderBindGroup);
+		const renderBindGroup = pingPong ? this.renderBindGroup1 : this.renderBindGroup2;
+
+		renderPass.setBindGroup(0, renderBindGroup);
 		renderPass.draw(6);
 		renderPass.end();
-
-		encoder.copyTextureToTexture(
-			{ texture: this.trailTexture },
-			{ texture: this.agentsTexture },
-			[this.settings.texWidth, this.settings.texHeight, 1],
-		);
 
 		const commandBuffer = encoder.finish();
 		this.device.queue.submit([commandBuffer]);
@@ -166,6 +166,7 @@ export class SlimeRenderer extends BaseRenderer {
 			code: `\
 				const i_TEX_DIMENSIONS = vec2i(${this.settings.texWidth}, ${this.settings.texHeight});
 				const f_TEX_DIMENSIONS = vec2f(${this.settings.texWidth}, ${this.settings.texHeight});
+				const TEX_WORKGROUP_SIZE = 16u;
 				${computeShaderCode}
 			`,
 		});
@@ -340,7 +341,6 @@ export class SlimeRenderer extends BaseRenderer {
 				size: [texWidth, texHeight],
 				format: "rgba8unorm",
 				usage: GPUTextureUsage.COPY_DST
-					| GPUTextureUsage.COPY_SRC
 					| GPUTextureUsage.TEXTURE_BINDING
 					| GPUTextureUsage.STORAGE_BINDING
 			});
@@ -413,6 +413,11 @@ export class SlimeRenderer extends BaseRenderer {
 					visibility: GPUShaderStage.COMPUTE,
 					buffer: { type: "uniform" },
 				},
+				{
+					binding: 2,
+					visibility: GPUShaderStage.COMPUTE,
+					buffer: { type: "storage" },
+				},
 			],
 		});
 
@@ -421,15 +426,10 @@ export class SlimeRenderer extends BaseRenderer {
 				{
 					binding: 0,
 					visibility: GPUShaderStage.COMPUTE,
-					buffer: { type: "storage" },
-				},
-				{
-					binding: 1,
-					visibility: GPUShaderStage.COMPUTE,
 					storageTexture: { format: "rgba8unorm" },
 				},
 				{
-					binding: 2,
+					binding: 1,
 					visibility: GPUShaderStage.COMPUTE,
 					texture: {},
 				},
@@ -446,36 +446,46 @@ export class SlimeRenderer extends BaseRenderer {
 			entries: [
 				{ binding: 0, resource: { buffer: this.sceneInfoBuffer.buffer } },
 				{ binding: 1, resource: { buffer: this.simOptionsBuffer.buffer } },
+				{ binding: 2, resource: { buffer: this.agentsBuffer.buffer } },
 			],
 		});
 
 		this.computeBindGroup1 = this.device.createBindGroup({
-			label: "slime mold::bindgroup::compute::1",
+			label: "slime mold::bindgroup::compute::ping",
 			layout: this.computeBindGroupLayout1,
 			entries: [
-				{ binding: 0, resource: { buffer: this.agentsBuffer.buffer } },
-				{ binding: 1, resource: this.agentsTexture.createView() },
-				{ binding: 2, resource: this.trailTexture.createView() },
+				{ binding: 0, resource: this.agentsTexture.createView() },
+				{ binding: 1, resource: this.trailTexture.createView() },
 			],
 		});
 
 		this.computeBindGroup2 = this.device.createBindGroup({
-			label: "slime mold::bindgroup::compute::2",
+			label: "slime mold::bindgroup::compute::pong",
 			layout: this.computeBindGroupLayout1,
 			entries: [
-				{ binding: 0, resource: { buffer: this.agentsBuffer.buffer } },
-				{ binding: 1, resource: this.trailTexture.createView() },
-				{ binding: 2, resource: this.agentsTexture.createView() },
+				{ binding: 0, resource: this.trailTexture.createView() },
+				{ binding: 1, resource: this.agentsTexture.createView() },
 			],
 		});
 
-		this.renderBindGroup = this.device.createBindGroup({
-			label: "slime mold::bindgroup::render::0",
+		this.renderBindGroup1 = this.device.createBindGroup({
+			label: "slime mold::bindgroup::render::ping",
 			layout: this.renderPipeline.getBindGroupLayout(0),
 			entries: [
 				{ binding: 0, resource: sampler },
 				{ binding: 1, resource: this.bgTexture.createView() },
 				{ binding: 2, resource: this.trailTexture.createView() },
+				{ binding: 3, resource: { buffer: this.bgColorBuffer.buffer } },
+			],
+		});
+
+		this.renderBindGroup2 = this.device.createBindGroup({
+			label: "slime mold::bindgroup::render::pong",
+			layout: this.renderPipeline.getBindGroupLayout(0),
+			entries: [
+				{ binding: 0, resource: sampler },
+				{ binding: 1, resource: this.bgTexture.createView() },
+				{ binding: 2, resource: this.agentsTexture.createView() },
 				{ binding: 3, resource: { buffer: this.bgColorBuffer.buffer } },
 			],
 		});

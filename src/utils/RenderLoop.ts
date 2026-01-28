@@ -7,6 +7,7 @@ type RenderLoopEvents = 'render' | 'step' | 'start' | 'stop';
 export class RenderLoop {
 
 	callback: (deltaTime: number) => boolean;
+	frameCount = 0;
 	timeSinceLastRender: number;
 	timeSinceFirstRender = 0;
 	pubsub = new PubSub<RenderLoopEvents>();
@@ -60,6 +61,7 @@ export class RenderLoop {
 			if (wasFrameRendered === false) {
 				this.timeSinceLastRender += deltaTime;
 			} else {
+				this.frameCount += 1;
 				this.timeSinceLastRender = 0;
 				this.pubsub.call('render');
 			}

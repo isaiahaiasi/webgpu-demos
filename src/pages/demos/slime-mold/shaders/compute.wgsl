@@ -1,6 +1,7 @@
 // Javascript-prepended consts:
 // i_TEX_DIMENSIONS : vec2i
 // f_TEX_DIMENSIONS : vec2f
+// TEX_WORKGROUP_SIZE : u32
 
 const PI = 3.14159265359;
 
@@ -44,11 +45,12 @@ fn normHash(s: u32) -> f32 {
 
 @group(0) @binding(0) var<uniform> info: SceneInfo;
 @group(0) @binding(1) var<uniform> options: SimOptions;
-@group(0) @binding(2) var<storage, read_write> debug: array<f32, 6>;
+@group(0) @binding(2) var<storage, read_write> agents: array<Agent>;
 
-@group(1) @binding(0) var<storage, read_write> agents: array<Agent>;
-@group(1) @binding(1) var writeTex: texture_storage_2d<rgba8unorm, write>;
-@group(1) @binding(2) var readTex: texture_2d<f32>;
+// TODO: do all texture writing in render step?
+// TODO: do two-pass gaussian blur (2n) instead of one-pass (n^2) !
+@group(1) @binding(0) var writeTex: texture_storage_2d<rgba8unorm, write>;
+@group(1) @binding(1) var readTex: texture_2d<f32>;
 
 // add up trail texels within bounds of agent sensor
 // instead of looking at all, just sample a portion.
@@ -141,12 +143,18 @@ fn sense(agent: Agent, sensorAngleOffset: f32) -> f32 {
     textureStore(writeTex, vec2u(newPos), vec4f(1));
 }
 
-@compute @workgroup_size(16, 16) fn process_trailmap(
+// Handle diffusion (blur) & evaporation (fade)
+@compute
+@workgroup_size (TEX_WORKGROUP_SIZE, TEX_WORKGROUP_SIZE)
+fn process_trailmap(
     @builtin(global_invocation_id) giid: vec3<u32>,
 ) {
-    if ((giid.x + giid.y + u32(info.time * 60.0)) % 2u == 0u) {
-        return;
-    }
+    // We'll revisit this optimization once I have better benchmarking...
+    // not convinced it's worth the visual artifacting.
+    // Alternating checkerboard whether to process pixel or not this frame.
+    // if ((giid.x + giid.y + u32(info.time * 60.0)) % 2u == 0u) {
+    //     return;
+    // }
 
     if (giid.x < 0 || giid.x >= u32(i_TEX_DIMENSIONS.x) || giid.y < 0 || giid.y >= u32(i_TEX_DIMENSIONS.y)) {
         return;
