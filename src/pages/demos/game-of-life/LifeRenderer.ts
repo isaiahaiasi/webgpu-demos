@@ -1,4 +1,6 @@
-import shaderCode from "./shader.wgsl?raw";
+import computeShaderCode from "./shaders/compute.wgsl?raw";
+import renderShaderCode from "./shaders/render.wgsl?raw";
+
 import { BaseRenderer } from "../../../utils/BaseRenderer";
 
 
@@ -50,7 +52,8 @@ export class LifeRenderer extends BaseRenderer {
 	colorBuffer: GPUBuffer;
 
 	// Pipeline assets
-	sharedShaderModule: GPUShaderModule;
+	computeShaderModule: GPUShaderModule;
+	renderShaderModule: GPUShaderModule;
 
 	computePipeline: GPUComputePipeline;
 	computeBindGroups: GPUBindGroup[];
@@ -85,7 +88,7 @@ export class LifeRenderer extends BaseRenderer {
 		// Compute pass
 		const computePass = encoder.beginComputePass();
 		computePass.setPipeline(this.computePipeline);
-		computePass.setBindGroup(1, this.computeBindGroups[this.currentBindGroupIndex]);
+		computePass.setBindGroup(0, this.computeBindGroups[this.currentBindGroupIndex]);
 		computePass.dispatchWorkgroups(
 			Math.ceil(this.settings.boardWidth / this.settings.workGroupSize),
 			Math.ceil(this.settings.boardHeight / this.settings.workGroupSize)
@@ -123,19 +126,24 @@ export class LifeRenderer extends BaseRenderer {
 			return state;
 		}
 
-		this.sharedShaderModule = this.device.createShaderModule({
+		this.computeShaderModule = this.device.createShaderModule({
 			label: 'life::module::shader',
 			// Changing these constants requires a full reset of the pipeline,
 			// so there's no benefit in passing them in as uniforms.
 			code: `
-const BoardWidth : u32 = ${this.settings.boardWidth}u;
-const BoardHeight : u32 = ${this.settings.boardHeight}u;
-const ScaleX : f32 = ${scaleX};
-const ScaleY : f32 = ${scaleY};
-const WorkGroupSize : u32 = ${this.settings.workGroupSize}u;
+const BOARD = vec2i(${this.settings.boardWidth}, ${this.settings.boardHeight});
+const WORKGROUP_SIZE : u32 = ${this.settings.workGroupSize}u;
 const BIRTH_MAP: array<u32, 9> =    array(${getStateMap(this.settings.rules.birth)});
 const SURVIVAL_MAP: array<u32, 9> = array(${getStateMap(this.settings.rules.survival)});
-` + shaderCode,
+` + computeShaderCode,
+		});
+
+		this.renderShaderModule = this.device.createShaderModule({
+			label: 'life::shader::render',
+			code: `
+const BOARD = vec2f(${this.settings.boardWidth}f, ${this.settings.boardHeight}f);
+const SCALE = vec2f(${scaleX}f, ${scaleY}f);
+` + renderShaderCode,
 		});
 
 		// Create two "ping pong" buffers
@@ -183,15 +191,15 @@ const SURVIVAL_MAP: array<u32, 9> = array(${getStateMap(this.settings.rules.surv
 		this.computePipeline = this.device.createComputePipeline({
 			label: "life::pipeline::compute",
 			layout: 'auto',
-			compute: { module: this.sharedShaderModule, entryPoint: 'main' },
+			compute: { module: this.computeShaderModule, entryPoint: 'main' },
 		});
 
 		this.renderPipeline = this.device.createRenderPipeline({
 			label: 'life::pipeline::render',
 			layout: 'auto',
-			vertex: { module: this.sharedShaderModule, entryPoint: 'vs' },
+			vertex: { module: this.renderShaderModule, entryPoint: 'vs' },
 			fragment: {
-				module: this.sharedShaderModule,
+				module: this.renderShaderModule,
 				entryPoint: 'fs',
 				targets: [{ format: this.format }],
 			},
@@ -201,7 +209,7 @@ const SURVIVAL_MAP: array<u32, 9> = array(${getStateMap(this.settings.rules.surv
 		this.computeBindGroups = [
 			this.device.createBindGroup({
 				label: 'life::bindgroup::compute::ping',
-				layout: this.computePipeline.getBindGroupLayout(1),
+				layout: this.computePipeline.getBindGroupLayout(0),
 				entries: [
 					{ binding: 0, resource: this.cellTextures[0].createView() },
 					{ binding: 1, resource: this.cellTextures[1].createView() },
@@ -209,15 +217,12 @@ const SURVIVAL_MAP: array<u32, 9> = array(${getStateMap(this.settings.rules.surv
 			}),
 			this.device.createBindGroup({
 				label: 'life::bindgroup::compute::pong',
-				layout: this.computePipeline.getBindGroupLayout(1),
+				layout: this.computePipeline.getBindGroupLayout(0),
 				entries: [
 					{ binding: 0, resource: this.cellTextures[1].createView() },
 					{ binding: 1, resource: this.cellTextures[0].createView() },
 				]
 			}),
-			// TODO: empty bindgroup so firefox doesn't get mad at skipping idx 0?
-			// this.device.createBindGroup({
-			// })
 		];
 
 		this.renderBindGroups = [
