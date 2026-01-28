@@ -252,7 +252,7 @@ const SCALE = vec2f(${scaleX}f, ${scaleY}f);
 				entries: [
 					{ binding: 0, resource: this.cellTextures[0].createView() },
 					{ binding: 1, resource: this.cellTextures[1].createView() },
-					{ binding: 2, resource: this.rulesBuffer.buffer },
+					{ binding: 2, resource: { buffer: this.rulesBuffer.buffer } },
 				]
 			}),
 			this.device.createBindGroup({
@@ -261,7 +261,7 @@ const SCALE = vec2f(${scaleX}f, ${scaleY}f);
 				entries: [
 					{ binding: 0, resource: this.cellTextures[1].createView() },
 					{ binding: 1, resource: this.cellTextures[0].createView() },
-					{ binding: 2, resource: this.rulesBuffer.buffer },
+					{ binding: 2, resource: { buffer: this.rulesBuffer.buffer } },
 				]
 			}),
 		];

@@ -1,12 +1,10 @@
 type BufferView = Float32Array<ArrayBuffer> | Uint32Array<ArrayBuffer> | Int32Array<ArrayBuffer>;
-
+type ViewType = Float32ArrayConstructor | Uint32ArrayConstructor | Int32ArrayConstructor;
 type ViewDescriptor = {
 	offset: number;
 	type: "f32" | "u32" | "i32";
 	length: number;
 };
-
-type ViewType = Float32ArrayConstructor | Uint32ArrayConstructor | Int32ArrayConstructor;
 
 
 export class StructBufferAsset {
