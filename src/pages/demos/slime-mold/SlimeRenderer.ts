@@ -53,7 +53,7 @@ export class SlimeRenderer extends BaseRenderer {
 		sensorDst: new Float32Array(1),
 		sensorSize: new Uint32Array(1),
 		turnSpeed: new Float32Array(1),
-	}
+	};
 
 	// ASSETS
 
@@ -360,8 +360,10 @@ export class SlimeRenderer extends BaseRenderer {
 
 		this.simOptionsBuffer = new StructBufferAsset(
 			this.device,
-			80,
-			{ usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST },
+			{
+				usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+				size: 80,
+			},
 			{
 				// MUST MATCH WGSL STRUCT!
 				diffuseSpeed: { offset: 0, length: 1, type: 'f32' },

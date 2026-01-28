@@ -1,7 +1,11 @@
-import shaderCode from "./shader.wgsl?raw";
+import computeShaderCode from "./shaders/compute.wgsl?raw";
+import renderShaderCode from "./shaders/render.wgsl?raw";
+
 import { BaseRenderer } from "../../../utils/BaseRenderer";
+import { StructBufferAsset } from "../../../utils/BufferAsset";
 
 /** 
+ * TODO: implement other neighborhood types.
  * NM: Moore (square)
  * NN: Von Neumann (diamond)
  * NC: Circular
@@ -20,7 +24,7 @@ export type LargerLifeRendererSettings = {
 	};
 	rules: {
 		initialDensity: number;
-		neighborhoodDistance: number;
+		neighborDistance: number;
 		// whether current cell should be counted in neighborhood
 		includeSelf: boolean;
 		birthMin: number;
@@ -41,12 +45,12 @@ function getDefaultSettings(): LargerLifeRendererSettings {
 		boardHeight: 512,
 		minFrameTime: .1, // minimum frame time in seconds
 		color: {
-			alive: [1,1,1,1], // RGB for alive cells
-			dead: [0,0,0,0], // RGB for dead cells
+			alive: [1, 1, 1, 1], // RGB for alive cells
+			dead: [0, 0, 0, 0], // RGB for dead cells
 		},
 		rules: {
 			initialDensity: 0.5,
-			neighborhoodDistance: 5, // Area = (2 * dist + 1)^2
+			neighborDistance: 5, // Area = (2 * dist + 1)^2
 			includeSelf: true,
 			survivalMin: 0.2809917355,
 			survivalMax: 0.479338843,
@@ -65,11 +69,13 @@ export class LargerLifeRenderer extends BaseRenderer {
 	currentBindGroupIndex: 1 | 0 = 0; // Ping Pong Buffer index
 
 	// Buffer/texture assets
-	cellTextures: GPUTexture[];
+	rulesBuffer: StructBufferAsset;
 	colorBuffer: GPUBuffer;
+	cellTextures: GPUTexture[];
 
 	// Pipeline assets
-	sharedShaderModule: GPUShaderModule;
+	computeShaderModule: GPUShaderModule;
+	renderShaderModule: GPUShaderModule;
 
 	computePipeline: GPUComputePipeline;
 	computeBindGroups: GPUBindGroup[];
@@ -108,7 +114,7 @@ export class LargerLifeRenderer extends BaseRenderer {
 		// Compute pass
 		const computePass = encoder.beginComputePass();
 		computePass.setPipeline(this.computePipeline);
-		computePass.setBindGroup(1, this.computeBindGroups[this.currentBindGroupIndex]);
+		computePass.setBindGroup(0, this.computeBindGroups[this.currentBindGroupIndex]);
 		computePass.dispatchWorkgroups(
 			Math.ceil(this.settings.boardWidth / this.settings.workGroupSize),
 			Math.ceil(this.settings.boardHeight / this.settings.workGroupSize)
@@ -122,7 +128,7 @@ export class LargerLifeRenderer extends BaseRenderer {
 		const renderPass = encoder.beginRenderPass(this.renderPassDesc);
 		renderPass.setPipeline(this.renderPipeline);
 		renderPass.setBindGroup(0, this.renderBindGroups[this.currentBindGroupIndex])
-		renderPass.draw(6); // (calls vertex shader 4 times)
+		renderPass.draw(6);
 		renderPass.end();
 
 		this.device.queue.submit([encoder.finish()]);
@@ -139,27 +145,22 @@ export class LargerLifeRenderer extends BaseRenderer {
 		const scaleX = canvasAspect > boardAspect ? (boardAspect / canvasAspect) : 1;
 		const scaleY = canvasAspect > boardAspect ? 1 : (canvasAspect / boardAspect);
 
-		this.sharedShaderModule = this.device.createShaderModule({
+		this.computeShaderModule = this.device.createShaderModule({
+			label: 'largerlife::shader::compute',
+			code: `
+const BOARD = vec2i(${this.settings.boardWidth}, ${this.settings.boardHeight});
+const WORKGROUP_SIZE: u32 = ${this.settings.workGroupSize}u;
+` + computeShaderCode,
+		});
+
+		this.renderShaderModule = this.device.createShaderModule({
 			label: 'largerlife::module::shader',
 			// Changing these constants requires a full reset of the pipeline,
 			// so there's no benefit in passing them in as uniforms.
 			code: `
-const BoardWidth : u32 = ${this.settings.boardWidth}u;
-const BoardHeight : u32 = ${this.settings.boardHeight}u;
-const ScaleX : f32 = ${scaleX};
-const ScaleY : f32 = ${scaleY};
-const WorkGroupSize : u32 = ${this.settings.workGroupSize}u;
-const IncludeSelf = ${this.settings.rules.includeSelf};
-const NeighborhoodDistance = ${this.settings.rules.neighborhoodDistance}i;
-const BirthRange: array<f32, 2> =    array(
-	${this.settings.rules.birthMin},
-	${this.settings.rules.birthMax}
-);
-const SurvivalRange: array<f32, 2> = array(
-	${this.settings.rules.survivalMin},
-	${this.settings.rules.survivalMax}
-);
-` + shaderCode,
+const BOARD = vec2u(${this.settings.boardWidth}u, ${this.settings.boardHeight}u);
+const SCALE = vec2f(${scaleX}f, ${scaleY}f);
+` + renderShaderCode,
 		});
 
 		// Create two "ping pong" buffers
@@ -189,33 +190,55 @@ const SurvivalRange: array<f32, 2> = array(
 			);
 		}
 
-		const colorBufferValues = new Float32Array([
-			...this.settings.color.alive,
-			...this.settings.color.dead,
-		]);
+		{
+			// Create color uniform buffer
+			const colorBufferValues = new Float32Array([
+				...this.settings.color.alive,
+				...this.settings.color.dead,
+			]);
 
-		this.colorBuffer = this.device.createBuffer({
-			label: 'largerlife::uniform::colors',
-			size: colorBufferValues.byteLength,
-			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-		});
+			this.colorBuffer = this.device.createBuffer({
+				label: 'largerlife::uniform::colors',
+				size: colorBufferValues.byteLength,
+				usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+			});
 
-		this.device.queue.writeBuffer(this.colorBuffer, 0, colorBufferValues);
+			this.device.queue.writeBuffer(
+				this.colorBuffer, 0,
+				colorBufferValues
+			);
+		}
+
+		this.rulesBuffer = new StructBufferAsset(
+			this.device,
+			{
+				usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+				size: 80,
+			},
+			{
+				includeSelf: { offset: 0, length: 1, type: 'i32' },
+				neighborDistance: { offset: 4, length: 1, type: 'i32' },
+				birthRange: { offset: 8, length: 2, type: 'f32' },
+				survivalRange: { offset: 16, length: 2, type: 'f32' },
+			},
+		);
+
+		this.updateRuleBuffer();
 	}
 
 	protected async makePipeline() {
 		this.computePipeline = this.device.createComputePipeline({
 			label: "largerlife::pipeline::compute",
 			layout: 'auto',
-			compute: { module: this.sharedShaderModule, entryPoint: 'main' },
+			compute: { module: this.computeShaderModule, entryPoint: 'main' },
 		});
 
 		this.renderPipeline = this.device.createRenderPipeline({
 			label: 'largerlife::pipeline::render',
 			layout: 'auto',
-			vertex: { module: this.sharedShaderModule, entryPoint: 'vs' },
+			vertex: { module: this.renderShaderModule, entryPoint: 'vs' },
 			fragment: {
-				module: this.sharedShaderModule,
+				module: this.renderShaderModule,
 				entryPoint: 'fs',
 				targets: [{ format: this.format }],
 			},
@@ -225,23 +248,22 @@ const SurvivalRange: array<f32, 2> = array(
 		this.computeBindGroups = [
 			this.device.createBindGroup({
 				label: 'largerlife::bindgroup::compute::ping',
-				layout: this.computePipeline.getBindGroupLayout(1),
+				layout: this.computePipeline.getBindGroupLayout(0),
 				entries: [
 					{ binding: 0, resource: this.cellTextures[0].createView() },
 					{ binding: 1, resource: this.cellTextures[1].createView() },
+					{ binding: 2, resource: this.rulesBuffer.buffer },
 				]
 			}),
 			this.device.createBindGroup({
 				label: 'largerlife::bindgroup::compute::pong',
-				layout: this.computePipeline.getBindGroupLayout(1),
+				layout: this.computePipeline.getBindGroupLayout(0),
 				entries: [
 					{ binding: 0, resource: this.cellTextures[1].createView() },
 					{ binding: 1, resource: this.cellTextures[0].createView() },
+					{ binding: 2, resource: this.rulesBuffer.buffer },
 				]
 			}),
-			// TODO: empty bindgroup so firefox doesn't get mad at skipping idx 0?
-			// this.device.createBindGroup({
-			// })
 		];
 
 		this.renderBindGroups = [
@@ -282,5 +304,15 @@ const SurvivalRange: array<f32, 2> = array(
 		]);
 
 		this.device.queue.writeBuffer(this.colorBuffer, 0, newColors);
+	}
+
+	/** Update GPU uniform buffer with new rules. */
+	updateRuleBuffer() {
+		this.rulesBuffer.set({
+			includeSelf: [this.settings.rules.includeSelf ? 1 : 0],
+			neighborDistance: [this.settings.rules.neighborDistance],
+			birthRange: [this.settings.rules.birthMin, this.settings.rules.birthMax],
+			survivalRange: [this.settings.rules.survivalMin, this.settings.rules.survivalMax],
+		});
 	}
 }

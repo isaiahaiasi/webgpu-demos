@@ -1,10 +1,12 @@
-type BufferView = Float32Array<ArrayBuffer> | Uint32Array<ArrayBuffer>;
+type BufferView = Float32Array<ArrayBuffer> | Uint32Array<ArrayBuffer> | Int32Array<ArrayBuffer>;
 
 type ViewDescriptor = {
 	offset: number;
-	type: "f32" | "u32";
+	type: "f32" | "u32" | "i32";
 	length: number;
 };
+
+type ViewType = Float32ArrayConstructor | Uint32ArrayConstructor | Int32ArrayConstructor;
 
 
 export class StructBufferAsset {
@@ -16,23 +18,28 @@ export class StructBufferAsset {
 
 	constructor(
 		device: GPUDevice,
-		size: number,
-		descriptor: Omit<GPUBufferDescriptor, "size">,
+		descriptor: GPUBufferDescriptor,
 		viewDescriptors: Record<string, ViewDescriptor>,
 	) {
 		this.#device = device;
-		this.values = new ArrayBuffer(size);
+		this.values = new ArrayBuffer(descriptor.size);
 		this.views = {};
 
-		Object.entries(viewDescriptors).forEach(([key, desc]) => {
-			const ViewType = desc.type === "f32" ? Float32Array : Uint32Array;
-			this.views[key] = new ViewType(this.values, desc.offset, desc.length);
+		Object.entries(viewDescriptors).forEach(([key, view_desc]) => {
+			let viewType: ViewType;
+
+			if (view_desc.type === "f32")
+				viewType = Float32Array;
+			else if (view_desc.type === "u32")
+				viewType = Uint32Array;
+			else if (view_desc.type === "i32")
+				viewType = Int32Array;
+			else throw new Error("Invalid StructBufferAsset array type: " + view_desc.type);
+
+			this.views[key] = new viewType(this.values, view_desc.offset, view_desc.length);
 		});
 
-		this.buffer = device.createBuffer({
-			...descriptor,
-			size,
-		});
+		this.buffer = device.createBuffer(descriptor);
 	}
 
 	setOne(key: string, value: ArrayLike<number>) {
