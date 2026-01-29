@@ -1,0 +1,44 @@
+---
+// RenderLoopControls.astro
+---
+
+<render-loop-controls class="render-controls">
+	<div class="controls-buttons">
+		<button data-playpause>Start</button>
+		<button data-step>Step</button>
+		<button data-reset>Reset</button>
+	</div>
+	<div class="frame-info">
+		Frame: <span data-frame-count>0</span>
+	</div>
+</render-loop-controls>
+
+<style>
+	.render-controls {
+		padding: 3px;
+		border-radius: 4px;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.controls-buttons {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.frame-info {
+		padding: 3px;
+		font-family: monospace;
+		font-size: 0.8rem;
+	}
+
+	.controls-buttons button {
+		font-family: monospace;
+		padding: .2rem 1rem;
+	}
+</style>
+
+<script>
+import { RenderMediaControlsElement } from './RenderMediaControlsElement';
+</script>

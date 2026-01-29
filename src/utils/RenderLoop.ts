@@ -11,7 +11,7 @@ export class RenderLoop {
 	timeSinceLastRender: number;
 	timeSinceFirstRender = 0;
 	pubsub = new PubSub<RenderLoopEvents>();
-	
+
 	#animFrameId: number;
 	#paused = true;
 	#prevRenderTime: number = Number.MAX_SAFE_INTEGER;
@@ -25,12 +25,48 @@ export class RenderLoop {
 
 	// Don't respect time scaling if the frame took more than 1/15th of a second.
 	maxTimeDelta = .067;
+	targetFrameTime = .0166667;
 
 	get paused() { return this.#paused; }
 
 
 	constructor(callback: (deltaTime: number) => boolean) {
 		this.callback = callback;
+	}
+
+	getDeltaTime(currentTime: number) {
+		const delta = (currentTime - this.#prevRenderTime) * 0.001;
+		return delta < this.maxTimeDelta ? delta : this.targetFrameTime;
+	}
+
+	step(currentTime?: number) {
+		if (!currentTime) {
+			currentTime = performance.now();
+		}
+
+		this.#animFrameId = null;
+
+		const deltaTime = this.getDeltaTime(currentTime);
+
+		this.#prevRenderTime = currentTime;
+
+		let wasFrameRendered = false;
+
+		if (this.framesPending < this.maxPendingFrames) {
+			wasFrameRendered = this.callback(deltaTime);
+		}
+
+		this.pubsub.call('step');
+
+		if (wasFrameRendered === false) {
+			this.timeSinceLastRender += deltaTime;
+		} else {
+			this.frameCount += 1;
+			this.timeSinceLastRender = 0;
+			this.pubsub.call('render');
+		}
+
+		this.timeSinceFirstRender += deltaTime;
 	}
 
 	start() {
@@ -41,32 +77,7 @@ export class RenderLoop {
 		this.pubsub.call('start');
 
 		const loop = (currentTime: number) => {
-			this.#animFrameId = null;
-
-			const deltaTime = Math.min(
-				Math.max(0, currentTime - this.#prevRenderTime) * 0.001,
-				this.maxTimeDelta
-			);
-
-			this.#prevRenderTime = currentTime;
-
-			let wasFrameRendered = false;
-
-			if (this.framesPending < this.maxPendingFrames) {
-				wasFrameRendered = this.callback(deltaTime);
-			}
-
-			this.pubsub.call('step');
-
-			if (wasFrameRendered === false) {
-				this.timeSinceLastRender += deltaTime;
-			} else {
-				this.frameCount += 1;
-				this.timeSinceLastRender = 0;
-				this.pubsub.call('render');
-			}
-
-			this.timeSinceFirstRender += deltaTime;
+			this.step(currentTime);
 
 			if (!this.paused) {
 				this.#animFrameId = requestAnimationFrame(loop);
@@ -85,7 +96,7 @@ export class RenderLoop {
 
 		this.#animFrameId = null;
 		this.#paused = true;
-		this.#prevRenderTime = Number.MAX_SAFE_INTEGER;
+		this.#prevRenderTime = 0;
 		this.pubsub.call('stop');
 	}
 }

@@ -1,4 +1,5 @@
 ---
+import RenderLoopControls from "../../../components/RenderMediaControls/RenderMediaControls.astro";
 import Layout from "../../../layouts/Layout.astro";
 ---
 
@@ -6,6 +7,7 @@ import Layout from "../../../layouts/Layout.astro";
 	<main>
 		<h1>Slime Mold Simulation</h1>
 		<div class="canvas-container">
+			<RenderLoopControls />
 			<canvas id="wgpu-canvas"></canvas>
 			<div class="gui-container" id="wgpu-gui"></div>
 		</div>
@@ -13,10 +15,11 @@ import Layout from "../../../layouts/Layout.astro";
 </Layout>
 
 <script>
-	// TODO: handle errors
 	import { PauseHandler } from "../../../utils/PauseHandler";
 	import { SlimeGui } from "./SlimeGui";
 	import { SlimeRenderer } from "./SlimeRenderer";
+
+	await customElements.whenDefined("render-loop-controls");
 
 	const canvasId = "wgpu-canvas";
 	const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -28,6 +31,11 @@ import Layout from "../../../layouts/Layout.astro";
 	const renderer = new SlimeRenderer(canvas, "slime");
 	new SlimeGui(renderer, "wgpu-gui");
 	new PauseHandler(canvas).init(renderer);
+
+	const controls = document.querySelector<any>("render-loop-controls");
+	if (controls) {
+		controls.setRunner(renderer);
+	}
 
 	await renderer.initialize();
 </script>
