@@ -93,10 +93,12 @@ fn sense(agent: Agent, sensorAngleOffset: f32) -> f32 {
     if (_id >= options.agentCount) {
         return;
     }
-    
+
     var agent = agents[_id];
     let prn = normHash(hash(
-        u32(agent.pos.y * f_TEX_DIMENSIONS.x + agent.pos.x) + hash(_id)
+        u32(agent.pos.y * f_TEX_DIMENSIONS.x + agent.pos.x) 
+        + hash(_id) 
+        + u32(info.time * 1000.0)  // Add time component
     ));
 
     // pick a direction (w some random variance)
@@ -106,12 +108,11 @@ fn sense(agent: Agent, sensorAngleOffset: f32) -> f32 {
     let weightRight = sense(agent, -options.sensorAngle);
 
     var angle = 0.0;
-    // continue in same dir
-    if (weightFwd > weightLeft && weightFwd > weightRight) {
-        angle = 0;
-    }
+    // if (weightFwd > weightLeft && weightFwd > weightRight) {
+    //     // angle = 0;
+    // }
     // turn randomly
-    else if (weightFwd < weightLeft && weightFwd < weightRight) {
+    if (weightFwd < weightLeft && weightFwd < weightRight) {
         angle = (prn - 0.5) * 2 * options.turnSpeed * info.deltaTime;
     }
     // turn left
@@ -122,8 +123,11 @@ fn sense(agent: Agent, sensorAngleOffset: f32) -> f32 {
     else if (weightRight > weightLeft) {
         angle = -prn * options.turnSpeed * info.deltaTime;
     }
+    // otherwise, continue in same dir
 
-    agents[_id].angle = (agents[_id].angle + angle) % (2 * PI);
+    if (abs(angle) > 0.001) {
+        agents[_id].angle = (agents[_id].angle + angle) % (2 * PI);
+    }
 
     // move agent based on direction and speed
     let dir = vec2f(cos(agents[_id].angle), sin(agents[_id].angle));
@@ -132,8 +136,8 @@ fn sense(agent: Agent, sensorAngleOffset: f32) -> f32 {
     // pick a new, random angle if hit a boundary
     if (newPos.x < 0 || newPos.x >= f_TEX_DIMENSIONS.x)
             || newPos.y < 0 || newPos.y >= f_TEX_DIMENSIONS.y {
-        newPos.x = clamp(newPos.x, 0, f_TEX_DIMENSIONS.x);
-        newPos.y = clamp(newPos.y, 0, f_TEX_DIMENSIONS.y);
+        newPos.x = clamp(newPos.x, 0, f_TEX_DIMENSIONS.x - 1);
+        newPos.y = clamp(newPos.y, 0, f_TEX_DIMENSIONS.y - 1);
         // I shouldn't have to add & modulo, but if I just assign directly
         // to prn*2*PI, they get stuck! Not sure why.
         agents[_id].angle += (prn * 2 * PI) % (2 * PI);
@@ -156,7 +160,7 @@ fn process_trailmap(
     //     return;
     // }
 
-    if (giid.x < 0 || giid.x >= u32(i_TEX_DIMENSIONS.x) || giid.y < 0 || giid.y >= u32(i_TEX_DIMENSIONS.y)) {
+    if (giid.x >= u32(i_TEX_DIMENSIONS.x)|| giid.y >= u32(i_TEX_DIMENSIONS.y)) {
         return;
     }
 

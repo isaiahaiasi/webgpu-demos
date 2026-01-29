@@ -22,13 +22,13 @@ export class SlimeGui extends BaseGui {
 			.onFinishChange(() => this.renderer.restart());
 
 		initialOpts.add(
-			this.renderer.settings, "texWidth", 32, 2048, 1)
+			this.renderer.settings, "texWidth", 32, 2048, 16)
 			.name("BoardWidth")
 			.onFinishChange(() => {
 				this.renderer.restart();
 			});
 
-		initialOpts.add(this.renderer.settings, "texHeight", 32, 2048, 1)
+		initialOpts.add(this.renderer.settings, "texHeight", 32, 2048, 16)
 			.name("BoardHeight")
 			.onFinishChange(() => {
 				this.renderer.restart();
@@ -47,14 +47,14 @@ export class SlimeGui extends BaseGui {
 				// so we clamp each channel to just under 100%.
 				this.renderer.settings.evaporateColor = v.map(c => c == 1 ? c - 0.01 : c);
 			});
-		dynamicOpts.add(this.renderer.settings, "evaporateSpeed", 0, 30, .1)
+		dynamicOpts.add(this.renderer.settings, "evaporateSpeed", 0, 100, .1)
 			.name("evaporateSpd");
-		dynamicOpts.add(this.renderer.settings, "diffuseSpeed", 0, 60)
+		dynamicOpts.add(this.renderer.settings, "diffuseSpeed", 0, 100)
 			.name("diffuseSpd");
-		dynamicOpts.add(this.renderer.settings, "moveSpeed", 0, 150, 1)
+		dynamicOpts.add(this.renderer.settings, "moveSpeed", 0, 200, 1)
 			.name("moveSpd");
 		dynamicOpts.add(this.renderer.settings, "sensorAngle", (Math.PI / 180), 90 * (Math.PI / 180));
 		dynamicOpts.add(this.renderer.settings, "sensorDst", 1, 100);
-		dynamicOpts.add(this.renderer.settings, "turnSpeed", 1, 50).name("turnSpd");
+		dynamicOpts.add(this.renderer.settings, "turnSpeed", 1, 75).name("turnSpd");
 	}
 }

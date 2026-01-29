@@ -40,7 +40,22 @@ export class SlimeRenderer extends BaseRenderer {
 		turnSpeed: 20,
 	};
 
+	// ASSETS
+
+	// Textures
+	agentsTexture: GPUTexture;
+	trailTexture: GPUTexture;
+	bgTexture: GPUTexture;
+
+	// Buffers (Storage & Uniform)
+	agentsBuffer: SimpleBufferAsset;
+	sceneInfoBuffer: SimpleBufferAsset;
+	bgColorBuffer: SimpleBufferAsset;
+	simOptionsBuffer: StructBufferAsset;
+
 	// Avoid allocating new arrays every frame.
+	// TODO: Rework BufferAsset classes so we can actually use those arraybuffers
+	// we already created. These extra ones should be totally unnecessary!
 	private sceneInfoArray = new Float32Array(2);
 	private bgColorArray = new Float32Array(4);
 	private simOptionsData = {
@@ -54,19 +69,6 @@ export class SlimeRenderer extends BaseRenderer {
 		sensorSize: new Uint32Array(1),
 		turnSpeed: new Float32Array(1),
 	};
-
-	// ASSETS
-
-	// Textures
-	agentsTexture: GPUTexture;
-	trailTexture: GPUTexture;
-	bgTexture: GPUTexture;
-
-	// Buffers (Storage & Uniform)
-	agentsBuffer: SimpleBufferAsset;
-	sceneInfoBuffer: SimpleBufferAsset;
-	bgColorBuffer: SimpleBufferAsset;
-	simOptionsBuffer: StructBufferAsset;
 
 	// BindGroup Layouts
 	computeBindGroupLayout0: GPUBindGroupLayout;
@@ -86,11 +88,67 @@ export class SlimeRenderer extends BaseRenderer {
 
 	renderPassDescriptor: GPURenderPassDescriptor;
 
+	pingPong: boolean = false;
+
 
 	protected render(deltaTime: number): boolean {
+		this.pingPong = !this.pingPong;
 
-		this.renderPassDescriptor.colorAttachments[0].view = this.context.getCurrentTexture().createView();
-		
+		// TODO: improve calculations 
+		// Sim gets wonky outside 30-60fps, clamp logic to that range.
+		// I care more about the step-to-step behavior than execution timing.
+		deltaTime = Math.min(Math.max(deltaTime, 0.016), 0.067);
+
+		this.updateUniforms(deltaTime);
+
+		const agentEncoder = this.device.createCommandEncoder({ label: `${this.label}::encoder::compute-agents` });
+
+		let computePass = agentEncoder.beginComputePass();
+		computePass.setPipeline(this.computeUpdatePipeline);
+		computePass.setBindGroup(0, this.computeBindGroup0);
+		computePass.setBindGroup(1, this.pingPong ? this.computeBindGroup1 : this.computeBindGroup2);
+		const workgroupSize = 64;
+		const numWorkgroups = Math.ceil(this.settings.agentCount / workgroupSize);
+		computePass.dispatchWorkgroups(numWorkgroups, 1, 1);
+		computePass.end();
+
+		this.device.queue.submit([agentEncoder.finish()]);
+
+		const encoder2 = this.device.createCommandEncoder({ label: `${this.label}::encoder::compute-trails` });
+
+		computePass = encoder2.beginComputePass();
+		computePass.setPipeline(this.computeProcessPipeline);
+		computePass.setBindGroup(0, this.computeBindGroup0);
+		computePass.setBindGroup(1, this.pingPong ? this.computeBindGroup2 : this.computeBindGroup1);
+		computePass.dispatchWorkgroups(
+			Math.ceil(this.settings.texWidth / 16),
+			Math.ceil(this.settings.texHeight / 16)
+		);
+		computePass.end();
+
+		this.device.queue.submit([encoder2.finish()]);
+
+		const encoder = this.device.createCommandEncoder({ label: `${this.label}::encoder::render`})
+
+		this.renderPassDescriptor.colorAttachments[0].view =
+			this.context.getCurrentTexture().createView();
+
+		const renderPass = encoder.beginRenderPass(this.renderPassDescriptor);
+		renderPass.setPipeline(this.renderPipeline);
+
+		const renderBindGroup = this.pingPong ? this.renderBindGroup2 : this.renderBindGroup1;
+
+		renderPass.setBindGroup(0, renderBindGroup);
+		renderPass.draw(6);
+		renderPass.end();
+
+		const commandBuffer = encoder.finish();
+		this.device.queue.submit([commandBuffer]);
+
+		return true;
+	}
+
+	private updateUniforms(deltaTime: number) {
 		this.sceneInfoArray[0] = deltaTime;
 		this.sceneInfoArray[1] = deltaTime;
 		this.sceneInfoBuffer.set(this.sceneInfoArray);
@@ -98,7 +156,6 @@ export class SlimeRenderer extends BaseRenderer {
 		this.bgColorArray.set(this.settings.backgroundColor);
 		this.bgColorBuffer.set(this.bgColorArray);
 		
-		// TODO: find a cleaner way to do all this *without* extra allocations.
 		this.simOptionsData.diffuseSpeed[0] = this.settings.diffuseSpeed;
 		this.simOptionsData.evaporateSpeed[0] = this.settings.evaporateSpeed;
 		this.simOptionsData.evaporateWeight.set(
@@ -111,48 +168,6 @@ export class SlimeRenderer extends BaseRenderer {
 		this.simOptionsData.turnSpeed[0] = this.settings.turnSpeed;
 
 		this.simOptionsBuffer.set(this.simOptionsData);
-
-
-		const encoder = this.device.createCommandEncoder({ label: "slime mold::encoder" });
-
-		const pingPong = this.loop.frameCount % 2 === 0;
-
-		let computePass = encoder.beginComputePass();
-		computePass.setPipeline(this.computeUpdatePipeline);
-		computePass.setBindGroup(0, this.computeBindGroup0);
-		computePass.setBindGroup(1, pingPong ? this.computeBindGroup1 : this.computeBindGroup2);
-		const workgroupSize = 64;
-		const numWorkgroups = Math.ceil(this.settings.agentCount / workgroupSize);
-		computePass.dispatchWorkgroups(numWorkgroups, 1, 1);
-		computePass.end();
-
-		computePass = encoder.beginComputePass();
-		computePass.setPipeline(this.computeProcessPipeline);
-		computePass.setBindGroup(0, this.computeBindGroup0);
-		computePass.setBindGroup(1, pingPong ? this.computeBindGroup2 : this.computeBindGroup1);
-		computePass.dispatchWorkgroups(
-			Math.ceil(this.settings.texWidth / 16),
-			Math.ceil(this.settings.texHeight / 16)
-		);
-		computePass.end();
-
-
-		this.renderPassDescriptor.colorAttachments[0].view =
-			this.context.getCurrentTexture().createView();
-
-		const renderPass = encoder.beginRenderPass(this.renderPassDescriptor);
-		renderPass.setPipeline(this.renderPipeline);
-
-		const renderBindGroup = pingPong ? this.renderBindGroup1 : this.renderBindGroup2;
-
-		renderPass.setBindGroup(0, renderBindGroup);
-		renderPass.draw(6);
-		renderPass.end();
-
-		const commandBuffer = encoder.finish();
-		this.device.queue.submit([commandBuffer]);
-
-		return true;
 	}
 
 	protected async makePipeline() {
@@ -162,7 +177,7 @@ export class SlimeRenderer extends BaseRenderer {
 		const scaleY = canvasAspect > boardAspect ? 1 : (canvasAspect / boardAspect);
 
 		const computeModule = this.device.createShaderModule({
-			label: "slime mold::module::compute",
+			label: `${this.label}::shader::compute`,
 			code: `\
 				const i_TEX_DIMENSIONS = vec2i(${this.settings.texWidth}, ${this.settings.texHeight});
 				const f_TEX_DIMENSIONS = vec2f(${this.settings.texWidth}, ${this.settings.texHeight});
@@ -172,7 +187,7 @@ export class SlimeRenderer extends BaseRenderer {
 		});
 
 		const renderModule = this.device.createShaderModule({
-			label: "slime mold::module::render",
+			label: `${this.label}::shader::render`,
 			code: `\
 				const SCALE_X = ${scaleX}f;
 				const SCALE_Y = ${scaleY}f;
@@ -185,7 +200,7 @@ export class SlimeRenderer extends BaseRenderer {
 		// * PIPELINES
 
 		this.computeUpdatePipeline = this.device.createComputePipeline({
-			label: "slime mold::pipeline::compute::update_agents",
+			label: `${this.label}::pipeline::compute::update_agents`,
 			layout: this.device.createPipelineLayout({
 				bindGroupLayouts: [
 					this.computeBindGroupLayout0,
@@ -199,7 +214,7 @@ export class SlimeRenderer extends BaseRenderer {
 		});
 
 		this.computeProcessPipeline = this.device.createComputePipeline({
-			label: "slime mold::pipeline::compute::process_trailmap",
+			label: `${this.label}::pipeline::compute::process_trailmap`,
 			layout: this.device.createPipelineLayout({
 				bindGroupLayouts: [
 					this.computeBindGroupLayout0,
@@ -213,7 +228,7 @@ export class SlimeRenderer extends BaseRenderer {
 		});
 
 		this.renderPipeline = this.device.createRenderPipeline({
-			label: "slime mold::pipeline::render",
+			label: `${this.label}::pipeline::render`,
 			layout: "auto",
 			vertex: {
 				module: renderModule,
@@ -229,7 +244,7 @@ export class SlimeRenderer extends BaseRenderer {
 		this.#createBindGroups();
 
 		this.renderPassDescriptor = {
-			label: "slime mold::renderpassdescriptor",
+			label: `${this.label}::descriptor::render-pass`,
 			colorAttachments: [{
 				view: undefined as any, // We'll set this each frame
 				clearValue: [0, 0, 0, 1], // black
@@ -304,14 +319,15 @@ export class SlimeRenderer extends BaseRenderer {
 			return texture;
 		})();
 
-		this.agentsTexture = (() => {
+		[this.agentsTexture, this.trailTexture] = ["ping-(agents)", "pong-(trail)"].map(
+			(label) => {
 			// initialize with all 0s
 			const agentsTexData = new Uint8Array(
 				new Array(texWidth * texHeight * 4).fill(0)
 			);
 
 			const texture = this.device.createTexture({
-				label: `${this.label}::tex::agents`,
+				label: `${this.label}::tex::${label}`,
 				size: [texWidth, texHeight],
 				format: "rgba8unorm",
 				usage: GPUTextureUsage.COPY_DST
@@ -327,33 +343,7 @@ export class SlimeRenderer extends BaseRenderer {
 			);
 
 			return texture;
-		})();
-
-		this.trailTexture = (() => {
-			// initialize with all 0s
-			const agentsTexData = new Uint8Array(
-				new Array(texWidth * texHeight * 4)
-					.fill(0)
-			);
-
-			const texture = this.device.createTexture({
-				label: `${this.label}::tex::trails`,
-				size: [texWidth, texHeight],
-				format: "rgba8unorm",
-				usage: GPUTextureUsage.COPY_DST
-					| GPUTextureUsage.TEXTURE_BINDING
-					| GPUTextureUsage.STORAGE_BINDING
-			});
-
-			this.device.queue.writeTexture(
-				{ texture },
-				agentsTexData,
-				{ bytesPerRow: texWidth * 4 },
-				{ width: texWidth, height: texHeight },
-			);
-
-			return texture;
-		})();
+		});
 	}
 
 	#createBuffers() {
