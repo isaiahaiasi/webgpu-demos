@@ -1,3 +1,4 @@
+import { initRenderMediaControls } from "../../../components/RenderMediaControls/RenderMediaControlsElement";
 import { PauseHandler } from "../../../utils/PauseHandler";
 import { LargerLifeGui } from "./LargerLifeGui";
 import { LargerLifeRenderer } from "./LargerLifeRenderer";
@@ -18,6 +19,8 @@ export async function main(
 	const renderer = new LargerLifeRenderer(canvas);
 	new LargerLifeGui(renderer, guiContainerId, 'largerlife');
 	new PauseHandler(canvas).init(renderer);
+	initRenderMediaControls(renderer);
+	
 
 	try {
 		await renderer.initialize();

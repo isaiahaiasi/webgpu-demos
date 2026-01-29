@@ -1,3 +1,4 @@
+import { initRenderMediaControls } from "../components/RenderMediaControls/RenderMediaControlsElement";
 import type { BaseRenderer } from "./BaseRenderer";
 import { PauseHandler } from "./PauseHandler";
 
@@ -17,6 +18,8 @@ export async function initRender(
 	const renderer = new rendererConstructor(canvas, rendererLabel);
 
 	new PauseHandler(canvas).init(renderer);
+
+	initRenderMediaControls(renderer);
 
 	try {
 

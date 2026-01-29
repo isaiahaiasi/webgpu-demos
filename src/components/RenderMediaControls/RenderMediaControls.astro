@@ -2,19 +2,26 @@
 // RenderLoopControls.astro
 ---
 
-<render-loop-controls class="render-controls">
+<render-media-controls class="render-controls">
 	<div class="controls-buttons">
 		<button data-playpause>Start</button>
 		<button data-step>Step</button>
 		<button data-reset>Reset</button>
 	</div>
-	<div class="frame-info">
-		Frame: <span data-frame-count>0</span>
+	<div class="controls-info">
+		<div class="info-item frame-info">
+			F:<span data-frame-count>0</span>
+		</div>
+		<div class="info-item time-info">
+			T:<span data-time>0</span>
+		</div>
 	</div>
-</render-loop-controls>
+	
+</render-media-controls>
 
 <style>
 	.render-controls {
+		font-family: monospace;
 		padding: 3px;
 		border-radius: 4px;
 		display: flex;
@@ -27,15 +34,16 @@
 		gap: 0.5rem;
 	}
 
-	.frame-info {
-		padding: 3px;
-		font-family: monospace;
-		font-size: 0.8rem;
-	}
-
 	.controls-buttons button {
 		font-family: monospace;
-		padding: .2rem 1rem;
+		padding: .2rem .4rem;
+		border-radius: 4px;
+	}
+
+	.controls-info .info-item {
+		text-align: right;
+		padding: 0 3px;
+		font-size: 0.8rem;
 	}
 </style>
 

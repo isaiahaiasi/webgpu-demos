@@ -1,12 +1,30 @@
 import type { BaseRenderer } from "../../utils/BaseRenderer";
 
+
+/** Initialize render media controls with given renderer.
+ * Selector defaults to custom element name.
+ * If multiple render-media-controls are on the page, must pass a selector.
+ */
+export function initRenderMediaControls(
+  renderer: BaseRenderer,
+  selector = "render-media-controls",
+) {
+  const controls = document.querySelector(selector) as RenderMediaControlsElement;
+	if (controls) {
+		controls.setRunner(renderer);
+	}
+}
+
+
 export class RenderMediaControlsElement extends HTMLElement {
 	private runner: BaseRenderer;
 	private frameCountSpan: HTMLSpanElement | null = null;
+  private timeSpan: HTMLSpanElement | null = null;
 	private playPauseBtn: HTMLButtonElement | null = null;
 
 	connectedCallback() {
 		this.frameCountSpan = this.querySelector("[data-frame-count]");
+		this.timeSpan = this.querySelector("[data-time]");
 
 		this.playPauseBtn = this.querySelector(
 			"[data-playpause]",
@@ -40,10 +58,11 @@ export class RenderMediaControlsElement extends HTMLElement {
 		this.runner = runner;
 		this.runner.onRender(() => {
 			if (this.frameCountSpan) {
-				this.frameCountSpan.textContent = String(
-					this.runner.loop.frameCount,
-				);
+				this.frameCountSpan.textContent = "" + this.runner.loop.frameCount;
 			}
+      if (this.timeSpan) {
+        this.timeSpan.textContent = this.runner.loop.timeSinceFirstRender.toFixed(3);
+      }
 		});
 		this.runner.onStart(() => {
 			this.playPauseBtn.textContent = "Stop";
@@ -54,4 +73,4 @@ export class RenderMediaControlsElement extends HTMLElement {
 	}
 }
 
-customElements.define("render-loop-controls", RenderMediaControlsElement);
+customElements.define("render-media-controls", RenderMediaControlsElement);

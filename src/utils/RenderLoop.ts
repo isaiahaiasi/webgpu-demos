@@ -14,7 +14,7 @@ export class RenderLoop {
 
 	#animFrameId: number;
 	#paused = true;
-	#prevRenderTime: number = Number.MAX_SAFE_INTEGER;
+	#prevRenderTime: number = 0;
 
 	// Used so consumers of the RenderLoop class can throttle the render loop.
 	// This is important because requestAnimationframe is called based on *browser*
@@ -70,7 +70,6 @@ export class RenderLoop {
 	}
 
 	start() {
-		this.timeSinceFirstRender = 0;
 		this.stop(); // Make sure cleanup is done if start() was called previously
 
 		this.#paused = false;

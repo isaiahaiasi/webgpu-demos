@@ -1,4 +1,5 @@
 ---
+import RenderMediaControls from "../../../components/RenderMediaControls/RenderMediaControls.astro";
 import Layout from "../../../layouts/Layout.astro";
 ---
 
@@ -18,6 +19,7 @@ import Layout from "../../../layouts/Layout.astro";
 		</div>
 		<div class="canvas-container">
 			<canvas id="wgpu-canvas"></canvas>
+			<RenderMediaControls />
 			<div id="wgpu-gui" class="gui-container"></div>
 		</div>
 	</main>
