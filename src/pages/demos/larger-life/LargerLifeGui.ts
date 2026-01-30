@@ -67,8 +67,8 @@ export class LargerLifeGui extends BaseGui {
 			});
 
 		ruleControls.add(
-			this.renderer.settings,
-			"minFrameTime", 0, 1, 0.01)
+			this.renderer.loop.frametime,
+			"min", 0, 1, 0.01)
 			.name("MinFrameTime");
 
 		ruleControls.addColor(this.renderer.settings.color, "alive")

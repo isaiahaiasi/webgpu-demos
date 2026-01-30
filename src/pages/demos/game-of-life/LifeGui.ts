@@ -1,4 +1,3 @@
-import type { GUI } from "dat.gui";
 import { BaseGui } from "../../../utils/BaseGui";
 import type { LifeRenderer } from "./LifeRenderer";
 
@@ -39,8 +38,8 @@ export class LifeGui extends BaseGui {
 		// Controls that can update live
 		const dynamicControls = this.gui.addFolder("Dynamic");
 		dynamicControls.add(
-			this.renderer.settings,
-			"minFrameTime", 0, 1, 0.01)
+			this.renderer.loop.frametime,
+			"min", 0, 1, 0.01)
 			.name("MinFrameTime");
 
 		dynamicControls.addColor(this.renderer.settings.color, "alive")

@@ -52,13 +52,9 @@ export abstract class BaseRenderer {
 	}
 
 	async restart() {
-		// TODO: RenderLoop should probably own its own "restart" logic handling.
-		this.loop.timeSinceFirstRender = 0;
-		this.loop.frameCount = 0;
-
 		this.createAssets();
 		await this.makePipeline();
-		this.loop.start();
+		this.loop.restart();
 	}
 
 	get hasErrors() {

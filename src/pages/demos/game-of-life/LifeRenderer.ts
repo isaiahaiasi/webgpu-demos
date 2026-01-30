@@ -65,6 +65,7 @@ export class LifeRenderer extends BaseRenderer {
 
 	async initialize(settings?: Partial<LifeRendererSettings>) {
 		this.settings = { ...this.settings, ...settings };
+		this.loop.frametime.min = this.settings.minFrameTime;
 		super.initialize();
 	}
 
@@ -74,15 +75,6 @@ export class LifeRenderer extends BaseRenderer {
 	}
 
 	render() {
-		if (this.loop.paused) {
-			return false;
-		}
-
-		// Only render at fixed minimum frame time & not paused.
-		if (this.loop.timeSinceLastRender < this.settings.minFrameTime) {
-			return false;
-		}
-
 		const encoder = this.device.createCommandEncoder({ label: 'life::encoder' });
 
 		// Compute pass

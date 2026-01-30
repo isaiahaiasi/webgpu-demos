@@ -4,69 +4,113 @@ import { PubSub } from "./PubSub";
 type RenderLoopEvents = 'render' | 'step' | 'start' | 'stop';
 
 
+/** Exposes min, max, and target values. Whenever one value is set,
+ * the others are updated if necessary to stay valid.
+ * (e.g., if min is 3 & max is 7, and min is updated to 9, max is also updated.)
+ */
+class FrameTime {
+	#minFrameTime: number;
+	#maxFrameTime: number;
+	#targetFrameTime: number;
+
+	get min() { return this.#minFrameTime; };
+	get max() { return this.#maxFrameTime; };
+	get target() { return this.#targetFrameTime; };
+
+	set min(v: number) {
+		this.#minFrameTime = v;
+		if (v > this.#targetFrameTime) this.#targetFrameTime = v;
+		if (v > this.#maxFrameTime) this.#maxFrameTime = v;
+	};
+	set max(v: number) {
+		this.#maxFrameTime = v;
+		if (v < this.#targetFrameTime) this.#targetFrameTime = v;
+		if (v < this.#minFrameTime) this.#minFrameTime = v;
+	};
+	set target(v: number) {
+		this.#targetFrameTime = v;
+		if (v < this.#minFrameTime) this.#minFrameTime = v;
+		if (v > this.#maxFrameTime) this.#maxFrameTime = v;
+	};
+
+	constructor(min = 1 / 120, target = 1 / 60, max = 1 / 15) {
+		this.min = min;
+		this.target = target;
+		this.max = max;
+	}
+}
+
+
 export class RenderLoop {
 
 	callback: (deltaTime: number) => boolean;
+
 	frameCount = 0;
-	timeSinceLastRender: number;
+	timeSinceLastRender = 0;
 	timeSinceFirstRender = 0;
+	frametime: FrameTime;
+
 	pubsub = new PubSub<RenderLoopEvents>();
 
 	#animFrameId: number;
 	#paused = true;
-	#prevRenderTime: number = 0;
+	#prevStepTime: number = 0;
 
-	// Used so consumers of the RenderLoop class can throttle the render loop.
-	// This is important because requestAnimationframe is called based on *browser*
-	// refresh rate--it doesn't care how long it takes to actually render
-	// a new frame.
+	// Allows consumers of the RenderLoop class to enforce backpressure.
+	// This is necessary because `requestAnimationframe` does not care how long
+	// it takes the GPU to render a new frame.
 	framesPending = 0;
 	maxPendingFrames = 2;
-
-	// Don't respect time scaling if the frame took more than 1/15th of a second.
-	maxTimeDelta = .067;
-	targetFrameTime = .0166667;
 
 	get paused() { return this.#paused; }
 
 
-	constructor(callback: (deltaTime: number) => boolean) {
+	constructor(
+		callback: (deltaTime: number) => boolean,
+		minFrameTime = 0,
+	) {
 		this.callback = callback;
+		this.frametime = new FrameTime(minFrameTime);
 	}
 
-	getDeltaTime(currentTime: number) {
-		const delta = (currentTime - this.#prevRenderTime) * 0.001;
-		return delta < this.maxTimeDelta ? delta : this.targetFrameTime;
+	/** Time since previous step in seconds.
+	 * Caps reported delta to max frame time.
+	 * This prevents issues with certain frame-sensitive tasks,
+	 * but the trade-off is if things rely on accumulated value it could drift.
+	 */
+	getDeltaTime(currentTime?: number) {
+		let delta = (currentTime - this.#prevStepTime) * 0.001;
+
+		return delta < this.frametime.max ? delta : this.frametime.target;
 	}
 
 	step(currentTime?: number) {
-		if (!currentTime) {
-			currentTime = performance.now();
-		}
+		const deltaTime = currentTime ? this.getDeltaTime(currentTime) : this.frametime.target;
+
+		// If step not called by rAF, approximate its DOMHighResTimeStamp.
+		this.#prevStepTime = currentTime ?? performance.now();
+
+		// NOTE: This uses capped delta rather than "true" delta, meaning accumulated
+		// time will be accurate to the game-state but not necessarily real elapsed time.
+		this.timeSinceLastRender += deltaTime;
+		this.timeSinceFirstRender += deltaTime;
 
 		this.#animFrameId = null;
-
-		const deltaTime = this.getDeltaTime(currentTime);
-
-		this.#prevRenderTime = currentTime;
-
-		let wasFrameRendered = false;
-
-		if (this.framesPending < this.maxPendingFrames) {
-			wasFrameRendered = this.callback(deltaTime);
-		}
-
 		this.pubsub.call('step');
 
-		if (wasFrameRendered === false) {
-			this.timeSinceLastRender += deltaTime;
-		} else {
-			this.frameCount += 1;
-			this.timeSinceLastRender = 0;
-			this.pubsub.call('render');
+		if (
+			this.framesPending > this.maxPendingFrames
+			|| this.frametime.min > this.timeSinceLastRender
+		) {
+			return;
 		}
 
-		this.timeSinceFirstRender += deltaTime;
+
+		this.callback(deltaTime);
+
+		this.frameCount += 1;
+		this.timeSinceLastRender = 0;
+		this.pubsub.call('render');
 	}
 
 	start() {
@@ -95,7 +139,14 @@ export class RenderLoop {
 
 		this.#animFrameId = null;
 		this.#paused = true;
-		this.#prevRenderTime = 0;
+		this.#prevStepTime = performance.now();
 		this.pubsub.call('stop');
+	}
+
+	restart(){
+		this.frameCount = 0;
+		this.timeSinceFirstRender = 0;
+		this.#prevStepTime = performance.now();
+		this.start();
 	}
 }

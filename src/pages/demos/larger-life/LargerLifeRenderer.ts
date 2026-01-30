@@ -91,6 +91,7 @@ export class LargerLifeRenderer extends BaseRenderer {
 		label = "life") {
 		super(canvas, label);
 		this.settings = { ...getDefaultSettings(), ...settings };
+		this.loop.frametime.min = this.settings.minFrameTime;
 	}
 
 
@@ -100,15 +101,6 @@ export class LargerLifeRenderer extends BaseRenderer {
 	}
 
 	render() {
-		if (this.loop.paused) {
-			return false;
-		}
-
-		// Only render at fixed minimum frame time & not paused.
-		if (this.loop.timeSinceLastRender < this.settings.minFrameTime) {
-			return false;
-		}
-
 		const encoder = this.device.createCommandEncoder({ label: 'largerlife::encoder' });
 
 		// Compute pass
