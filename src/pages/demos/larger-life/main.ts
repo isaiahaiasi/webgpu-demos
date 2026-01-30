@@ -1,4 +1,4 @@
-import { initRenderMediaControls } from "../../../components/RenderMediaControls/RenderMediaControlsElement";
+import { initRenderMediaControls } from "../../../components/RenderMediaControls/initRenderMediaControls";
 import { PauseHandler } from "../../../utils/PauseHandler";
 import { LargerLifeGui } from "./LargerLifeGui";
 import { LargerLifeRenderer } from "./LargerLifeRenderer";

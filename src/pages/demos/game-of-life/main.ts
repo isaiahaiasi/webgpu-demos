@@ -2,7 +2,7 @@ import { LifeGui } from "./LifeGui";
 import { LifeRenderer, type LifeRendererSettings } from "./LifeRenderer";
 import type { BaseGui } from "../../../utils/BaseGui";
 import { PauseHandler } from "../../../utils/PauseHandler";
-import { initRenderMediaControls } from "../../../components/RenderMediaControls/RenderMediaControlsElement";
+import { initRenderMediaControls } from "../../../components/RenderMediaControls/initRenderMediaControls";
 
 
 const presets = {

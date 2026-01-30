@@ -1,4 +1,4 @@
-import { initRenderMediaControls } from "../components/RenderMediaControls/RenderMediaControlsElement";
+import { initRenderMediaControls } from "../components/RenderMediaControls/initRenderMediaControls";
 import type { BaseRenderer } from "./BaseRenderer";
 import { PauseHandler } from "./PauseHandler";
 
