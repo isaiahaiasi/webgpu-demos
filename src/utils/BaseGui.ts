@@ -5,7 +5,6 @@ import type { BaseRenderer } from './BaseRenderer';
 
 export class BaseGui {
 
-	public showStats = true;
 
 	public label: string;
 
@@ -14,6 +13,17 @@ export class BaseGui {
 	protected stats: Stats;
 	protected renderer: BaseRenderer;
 
+	#showStats = true;
+
+	get showStats() { return this.#showStats; }
+	set showStats(v) {
+		this.#showStats = v;
+		if (v) {
+			this.container.prepend(this.stats.dom);
+		} else {
+			this.stats?.dom.remove();
+		}
+	}
 
 
 	constructor(renderer: BaseRenderer, containerId?: string, label?: string) {
@@ -65,14 +75,6 @@ export class BaseGui {
 	}
 
 	private addDefaultGuiOptions() {
-		this.gui.add(this, "showStats")
-			.name("Show Stats")
-			.onChange((v: boolean) => {
-				if (v) {
-					this.container.prepend(this.stats.dom);
-				} else {
-					this.stats?.dom.remove();
-				}
-			});
+		this.gui.add(this, "showStats").name("Show Stats");
 	}
 }

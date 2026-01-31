@@ -1,5 +1,6 @@
 ---
 import RenderMediaControls from "../../../components/RenderMediaControls/RenderMediaControls.astro";
+import RenderStats from "../../../components/RenderStats/RenderStats.astro";
 import Layout from "../../../layouts/Layout.astro";
 ---
 
@@ -9,6 +10,7 @@ import Layout from "../../../layouts/Layout.astro";
 		<div class="canvas-container">
 			<canvas id="wgpu-canvas"></canvas>
 			<RenderMediaControls />
+			<RenderStats />
 			<div class="gui-container" id="wgpu-gui"></div>
 		</div>
 	</main>
@@ -16,11 +18,10 @@ import Layout from "../../../layouts/Layout.astro";
 
 <script>
 	import { initRenderMediaControls } from "../../../components/RenderMediaControls/initRenderMediaControls";
-import { PauseHandler } from "../../../utils/PauseHandler";
+	import { getRenderStats } from "../../../components/RenderStats/getRenderStats";
+	import { PauseHandler } from "../../../utils/PauseHandler";
 	import { SlimeGui } from "./SlimeGui";
 	import { SlimeRenderer } from "./SlimeRenderer";
-
-	await customElements.whenDefined("render-media-controls");
 
 	const canvasId = "wgpu-canvas";
 	const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -34,6 +35,22 @@ import { PauseHandler } from "../../../utils/PauseHandler";
 	new PauseHandler(canvas).init(renderer);
 
 	initRenderMediaControls(renderer);
+
+	const stats = await getRenderStats();
+	stats.add("fps", (v) => (1 / v).toFixed(1));
+	stats.add("js", (v) => v.toFixed(1));
+	stats.add("agents", (v) => v ? `${(v / 1000).toFixed(1)}µs` : "N/A");
+	stats.add("trails", (v) => v ? `${(v / 1000).toFixed(1)}µs` : "N/A");
+	stats.add("render", (v) => v ? `${(v / 1000).toFixed(1)}µs` : "N/A");
+
+
+	renderer.onRender(() => {
+		stats.update("js", renderer.loop.jsTime);
+		stats.update("fps", renderer.loop.trueDeltaTime);
+		stats.update("agents", renderer.perfTimes.get("agents"));
+		stats.update("trails", renderer.perfTimes.get("trails"));
+		stats.update("render", renderer.perfTimes.get("render"));
+	});
 
 	await renderer.initialize();
 </script>

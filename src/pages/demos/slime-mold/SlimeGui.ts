@@ -7,6 +7,8 @@ export class SlimeGui extends BaseGui {
 	protected async initGui() {
 		await super.initGui();
 
+		this.showStats = false;
+
 		const initialOpts = this.gui.addFolder("Initial");
 
 		initialOpts.add(this.renderer.settings, "agentCountTrunc", 1, 4_000, 1)

@@ -20,6 +20,15 @@ export abstract class BaseRenderer {
 
 	loop = new RenderLoop((dt) => this.render(dt));
 
+	// GPU Performance timestamps
+	// TODO: move to separate module
+	queryTimestamps: boolean;
+	querySet: GPUQuerySet;
+	resolveBuffer: GPUBuffer;
+	resultBuffer: GPUBuffer;
+	perfTimes = new Map<string, number>();
+
+
 	/** @returns If frame was fully rendered. */
 	protected abstract render(deltaTime: number): boolean;
 
@@ -28,9 +37,10 @@ export abstract class BaseRenderer {
 	protected abstract createAssets(): Promise<void>;
 
 
-	constructor(canvas: HTMLCanvasElement, baseLabel: string) {
+	constructor(canvas: HTMLCanvasElement, baseLabel: string, queryTimestamps = false) {
 		this.canvas = canvas;
 		this.label = baseLabel;
+		this.queryTimestamps = queryTimestamps;
 
 		// Back pressure to prevent several commandBuffers being queued up at once,
 		// which would create a negative feedback loop and can rapidly degrade
@@ -47,7 +57,6 @@ export abstract class BaseRenderer {
 	async initialize() {
 		this.#setupCanvas();
 		await this.#setupDevice();
-
 		this.restart();
 	}
 
@@ -102,7 +111,12 @@ export abstract class BaseRenderer {
 			return;
 		}
 
-		this.device = await adapter.requestDevice();
+		this.queryTimestamps = this.queryTimestamps && adapter.features.has('timestamp-query');
+
+		this.device = await adapter.requestDevice({
+			requiredFeatures: this.queryTimestamps ? ['timestamp-query'] : [],
+		});
+
 		this.device.lost.then((info) => {
 			this.#fail(`WebGPU device was lost: ${info.message}`);
 
@@ -121,5 +135,32 @@ export abstract class BaseRenderer {
 			format: this.format,
 			alphaMode: "opaque",
 		});
+	}
+
+	setupTimestamps(times: string[]) {
+		if (!this.queryTimestamps) {
+			return;
+		}
+
+		times.forEach(t => {
+			this.perfTimes.set(t, 0);
+		});
+
+		this.querySet = this.device.createQuerySet({
+			type: 'timestamp',
+			count: times.length * 2,
+		});
+		this.resolveBuffer = this.device.createBuffer({
+			size: this.querySet.count * 8,
+			usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
+		});
+		this.resultBuffer = this.device.createBuffer({
+			size: this.resolveBuffer.size,
+			usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+		});
+	}
+
+	updateTimestamp(timeName: string, value: Number | BigInt) {
+		this.perfTimes.set(timeName, Number(value));
 	}
 }

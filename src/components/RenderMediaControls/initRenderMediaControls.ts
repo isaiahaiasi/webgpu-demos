@@ -1,3 +1,4 @@
+import { custom } from "astro:schema";
 import type { BaseRenderer } from "../../utils/BaseRenderer";
 import type { RenderMediaControlsElement } from "./RenderMediaControlsElement";
 
@@ -5,12 +6,11 @@ import type { RenderMediaControlsElement } from "./RenderMediaControlsElement";
  * Selector defaults to custom element name.
  * If multiple render-media-controls are on the page, must pass a selector.
  */
-export function initRenderMediaControls(
+export async function initRenderMediaControls(
 	renderer: BaseRenderer,
 	selector = "render-media-controls",
 ) {
+	await customElements.whenDefined('render-media-controls');
 	const controls = document.querySelector(selector) as RenderMediaControlsElement;
-	if (controls) {
-		controls.setRunner(renderer);
-	}
+	controls?.setRunner(renderer);
 }

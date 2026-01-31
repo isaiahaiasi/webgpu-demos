@@ -62,6 +62,9 @@ export class RenderLoop {
 	framesPending = 0;
 	maxPendingFrames = 2;
 
+	jsTime = 0;
+	trueDeltaTime = 0;
+
 	get paused() { return this.#paused; }
 
 
@@ -85,6 +88,8 @@ export class RenderLoop {
 	}
 
 	step(currentTime?: number) {
+		this.trueDeltaTime = (performance.now() - this.#prevStepTime) * 0.001;
+		
 		const deltaTime = currentTime ? this.getDeltaTime(currentTime) : this.frametime.target;
 
 		// If step not called by rAF, approximate its DOMHighResTimeStamp.
@@ -105,8 +110,9 @@ export class RenderLoop {
 			return;
 		}
 
-
+		const cbStart = performance.now();
 		this.callback(deltaTime);
+		this.jsTime = performance.now() - cbStart;
 
 		this.frameCount += 1;
 		this.timeSinceLastRender = 0;

@@ -17,8 +17,8 @@ const TEXTURE_OPTIONS: GPUSamplerDescriptor = {
 export class SlimeRenderer extends BaseRenderer {
 	settings = {
 		// reload required
-		texWidth: 2048,
-		texHeight: 1024,
+		texWidth: 1600,
+		texHeight: 800,
 		agentCountTrunc: 1_000, // x1000 (truncated for UI purposes...)
 		get agentCount() {
 			return this.agentCountTrunc * 1_000;
@@ -87,8 +87,14 @@ export class SlimeRenderer extends BaseRenderer {
 	renderPipeline: GPURenderPipeline;
 
 	renderPassDescriptor: GPURenderPassDescriptor;
+	computePassAgentsDescriptor: GPUComputePassDescriptor;
+	computePassTrailsDescriptor: GPUComputePassDescriptor;
 
 	pingPong: boolean = false;
+
+	constructor(canvas: HTMLCanvasElement, baseLabel: string) {
+		super(canvas, baseLabel, true);
+	}
 
 
 	protected render(deltaTime: number): boolean {
@@ -103,7 +109,7 @@ export class SlimeRenderer extends BaseRenderer {
 
 		const agentEncoder = this.device.createCommandEncoder({ label: `${this.label}::encoder::compute-agents` });
 
-		let computePass = agentEncoder.beginComputePass();
+		let computePass = agentEncoder.beginComputePass(this.computePassAgentsDescriptor);
 		computePass.setPipeline(this.computeUpdatePipeline);
 		computePass.setBindGroup(0, this.computeBindGroup0);
 		computePass.setBindGroup(1, this.pingPong ? this.computeBindGroup1 : this.computeBindGroup2);
@@ -116,7 +122,7 @@ export class SlimeRenderer extends BaseRenderer {
 
 		const encoder2 = this.device.createCommandEncoder({ label: `${this.label}::encoder::compute-trails` });
 
-		computePass = encoder2.beginComputePass();
+		computePass = encoder2.beginComputePass(this.computePassTrailsDescriptor);
 		computePass.setPipeline(this.computeProcessPipeline);
 		computePass.setBindGroup(0, this.computeBindGroup0);
 		computePass.setBindGroup(1, this.pingPong ? this.computeBindGroup2 : this.computeBindGroup1);
@@ -128,7 +134,7 @@ export class SlimeRenderer extends BaseRenderer {
 
 		this.device.queue.submit([encoder2.finish()]);
 
-		const encoder = this.device.createCommandEncoder({ label: `${this.label}::encoder::render`})
+		const encoder = this.device.createCommandEncoder({ label: `${this.label}::encoder::render` })
 
 		this.renderPassDescriptor.colorAttachments[0].view =
 			this.context.getCurrentTexture().createView();
@@ -142,8 +148,33 @@ export class SlimeRenderer extends BaseRenderer {
 		renderPass.draw(6);
 		renderPass.end();
 
+		if (this.queryTimestamps) {
+			encoder.resolveQuerySet(
+				this.querySet, 0,
+				this.querySet.count,
+				this.resolveBuffer, 0
+			);
+			if (this.resultBuffer.mapState === 'unmapped') {
+				encoder.copyBufferToBuffer(
+					this.resolveBuffer, 0,
+					this.resultBuffer, 0,
+					this.resultBuffer.size
+				);
+			}
+		}
+
 		const commandBuffer = encoder.finish();
 		this.device.queue.submit([commandBuffer]);
+
+		if (this.queryTimestamps && this.resultBuffer.mapState === 'unmapped') {
+			this.resultBuffer.mapAsync(GPUMapMode.READ).then(() => {
+				const times = new BigUint64Array(this.resultBuffer.getMappedRange());
+				this.updateTimestamp("agents", times[1] - times[0]);
+				this.updateTimestamp("trails", times[3] - times[2]);
+				this.updateTimestamp("render", times[5] - times[4]);
+				this.resultBuffer.unmap();
+			});
+		}
 
 		return true;
 	}
@@ -152,10 +183,10 @@ export class SlimeRenderer extends BaseRenderer {
 		this.sceneInfoArray[0] = deltaTime;
 		this.sceneInfoArray[1] = deltaTime;
 		this.sceneInfoBuffer.set(this.sceneInfoArray);
-		
+
 		this.bgColorArray.set(this.settings.backgroundColor);
 		this.bgColorBuffer.set(this.bgColorArray);
-		
+
 		this.simOptionsData.diffuseSpeed[0] = this.settings.diffuseSpeed;
 		this.simOptionsData.evaporateSpeed[0] = this.settings.evaporateSpeed;
 		this.simOptionsData.evaporateWeight.set(
@@ -243,6 +274,25 @@ export class SlimeRenderer extends BaseRenderer {
 
 		this.#createBindGroups();
 
+		this.computePassAgentsDescriptor = {
+			...(this.queryTimestamps && {
+				timestampWrites: {
+					querySet: this.querySet,
+					beginningOfPassWriteIndex: 0,
+					endOfPassWriteIndex: 1,
+				}
+			})
+		}
+		this.computePassTrailsDescriptor = {
+			...(this.queryTimestamps && {
+				timestampWrites: {
+					querySet: this.querySet,
+					beginningOfPassWriteIndex: 2,
+					endOfPassWriteIndex: 3,
+				}
+			})
+		}
+
 		this.renderPassDescriptor = {
 			label: `${this.label}::descriptor::render-pass`,
 			colorAttachments: [{
@@ -251,12 +301,20 @@ export class SlimeRenderer extends BaseRenderer {
 				loadOp: "clear",
 				storeOp: "store",
 			}],
+			...(this.queryTimestamps && {
+				timestampWrites: {
+					querySet: this.querySet,
+					beginningOfPassWriteIndex: 4,
+					endOfPassWriteIndex: 5,
+				},
+			})
 		};
 	}
 
 	protected async createAssets() {
 		this.#createTextures();
 		this.#createBuffers();
+		this.setupTimestamps(["agents", "trails", "render"]);
 		await this.#initAgents();
 	}
 
@@ -321,29 +379,29 @@ export class SlimeRenderer extends BaseRenderer {
 
 		[this.agentsTexture, this.trailTexture] = ["ping-(agents)", "pong-(trail)"].map(
 			(label) => {
-			// initialize with all 0s
-			const agentsTexData = new Uint8Array(
-				new Array(texWidth * texHeight * 4).fill(0)
-			);
+				// initialize with all 0s
+				const agentsTexData = new Uint8Array(
+					new Array(texWidth * texHeight * 4).fill(0)
+				);
 
-			const texture = this.device.createTexture({
-				label: `${this.label}::tex::${label}`,
-				size: [texWidth, texHeight],
-				format: "rgba8unorm",
-				usage: GPUTextureUsage.COPY_DST
-					| GPUTextureUsage.TEXTURE_BINDING
-					| GPUTextureUsage.STORAGE_BINDING
+				const texture = this.device.createTexture({
+					label: `${this.label}::tex::${label}`,
+					size: [texWidth, texHeight],
+					format: "rgba8unorm",
+					usage: GPUTextureUsage.COPY_DST
+						| GPUTextureUsage.TEXTURE_BINDING
+						| GPUTextureUsage.STORAGE_BINDING
+				});
+
+				this.device.queue.writeTexture(
+					{ texture },
+					agentsTexData,
+					{ bytesPerRow: texWidth * 4 },
+					{ width: texWidth, height: texHeight },
+				);
+
+				return texture;
 			});
-
-			this.device.queue.writeTexture(
-				{ texture },
-				agentsTexData,
-				{ bytesPerRow: texWidth * 4 },
-				{ width: texWidth, height: texHeight },
-			);
-
-			return texture;
-		});
 	}
 
 	#createBuffers() {
