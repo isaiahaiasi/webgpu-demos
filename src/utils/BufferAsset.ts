@@ -1,6 +1,6 @@
 type BufferView = Float32Array<ArrayBuffer> | Uint32Array<ArrayBuffer> | Int32Array<ArrayBuffer>;
 type ViewType = Float32ArrayConstructor | Uint32ArrayConstructor | Int32ArrayConstructor;
-type ViewDescriptor = {
+export type ViewDescriptor = {
 	offset: number;
 	type: "f32" | "u32" | "i32";
 	length: number;
@@ -40,6 +40,10 @@ export class StructBufferAsset {
 		this.buffer = device.createBuffer(descriptor);
 	}
 
+	write() {
+		this.#device.queue.writeBuffer(this.buffer, 0, this.values);
+	}
+
 	setOne(key: string, value: ArrayLike<number>) {
 		if (!this.views[key]) {
 			console.error(`View "${key}" not found in buffer`);
@@ -47,7 +51,6 @@ export class StructBufferAsset {
 		}
 
 		this.views[key].set(typeof value === 'number' ? [value] : value);
-		this.#device.queue.writeBuffer(this.buffer, 0, this.values);
 	}
 
 	set(values: Record<string, ArrayLike<number>>) {

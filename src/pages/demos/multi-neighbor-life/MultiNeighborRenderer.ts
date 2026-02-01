@@ -1,5 +1,5 @@
 import { BaseRenderer } from "../../../utils/BaseRenderer";
-import { SimpleBufferAsset } from "../../../utils/BufferAsset";
+import { SimpleBufferAsset, StructBufferAsset, type ViewDescriptor } from "../../../utils/BufferAsset";
 import { getRenderShader, getComputeShader, MAX_RULE_SIZE } from "./shaders";
 
 
@@ -43,7 +43,7 @@ function getDefaultSettings(): MultiLifeRendererSettings {
 			alive: [1, 1, 1, 1], // RGB for alive cells
 			dead: [0, 0, 0, 0], // RGB for dead cells
 		},
-		initialDensity: .5,
+		initialDensity: .2,
 		neighborhoods: [
 			{
 				shape: 'CIRCLE',
@@ -108,7 +108,7 @@ export class MultiLifeRenderer extends BaseRenderer {
 	currentBindGroupIndex: 1 | 0 = 0; // Ping Pong Buffer index
 
 	// Buffer/texture assets
-	neighborHoodBuffer: SimpleBufferAsset;
+	neighborHoodBuffer: StructBufferAsset;
 	colorBuffer: GPUBuffer;
 	cellTextures: GPUTexture[];
 
@@ -234,13 +234,25 @@ export class MultiLifeRenderer extends BaseRenderer {
 			);
 		}
 
-		this.neighborHoodBuffer = new SimpleBufferAsset(
+		const views: Record<string, ViewDescriptor> = Object.fromEntries(
+			this.settings.neighborhoods.flatMap((_, i) =>{
+				const offset = (4 + 4 * MAX_RULE_SIZE) * i * 4;
+				return [
+					[`shape_${i}`, { type: "u32", offset: offset + 0, length: 1 }],
+					[`distance_${i}`, { type: "i32", offset: offset + 8, length: 2 }],
+					[`rules_${i}`, { type: "f32", offset: offset + 16, length: MAX_RULE_SIZE * 4 }],
+				];
+			})
+		);
+
+		this.neighborHoodBuffer = new StructBufferAsset(
 			this.device,
-			new Float32Array(4 * MAX_RULE_SIZE * this.settings.neighborhoods.length),
 			{
 				usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 				label: `${this.label}::uniform::neighborhood-rules`,
-			}
+				size: (4 + 4 * MAX_RULE_SIZE) * this.settings.neighborhoods.length * 4,
+			},
+			views
 		);
 
 		this.updateNeighborhoodBuffer();
@@ -328,27 +340,26 @@ export class MultiLifeRenderer extends BaseRenderer {
 
 	/** Update GPU uniform buffer with new rules. */
 	updateNeighborhoodBuffer() {
-		const values = new Float32Array(4 * MAX_RULE_SIZE * this.settings.neighborhoods.length);
-
 		for (let nIdx = 0; nIdx < this.settings.neighborhoods.length; nIdx++) {
-			const neighborhood = this.settings.neighborhoods[nIdx];
-			const offset = nIdx * MAX_RULE_SIZE * 4; // MAX_RULE_SIZE vec4 per neighborhood, 4 bytes per float
-			for (let rIdx = 0; rIdx < neighborhood.rules.length; rIdx++) {
-				const rule = neighborhood.rules[rIdx];
-				const ruleOffset = offset + rIdx * 4;
-				values[ruleOffset + 0] = rule.result;
-				values[ruleOffset + 1] = rule.minDensity;
-				values[ruleOffset + 2] = rule.maxDensity;
-				values[ruleOffset + 3] = 0; // padding
-			}
-
-			// If needed, add a terminating "null" rule
-			if (neighborhood.rules.length < MAX_RULE_SIZE) {
-				const ruleOffset = offset + neighborhood.rules.length * 4;
-				values[ruleOffset] = 1000;
-			}
+			this.neighborHoodBuffer.setOne(`shape_${nIdx}`,
+				this.settings.neighborhoods[nIdx].shape === 'CIRCLE' ? [1] : [0]
+			);
+			this.neighborHoodBuffer.setOne(`distance_${nIdx}`, [
+				this.settings.neighborhoods[nIdx].minDist,
+				this.settings.neighborhoods[nIdx].maxDist,
+			]);
+			this.neighborHoodBuffer.setOne(
+				`rules_${nIdx}`,
+				this.settings.neighborhoods[nIdx].rules
+					.flatMap(r => [
+						r.result,
+						r.minDensity,
+						r.maxDensity,
+						0, // padding
+				])
+			);
 		}
 
-		this.neighborHoodBuffer.set(values);
+		this.neighborHoodBuffer.write();
 	}
 }

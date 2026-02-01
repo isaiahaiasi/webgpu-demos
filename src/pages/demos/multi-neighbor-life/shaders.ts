@@ -61,7 +61,7 @@ type ComputeShaderParams = {
     neighborhoods: Neighborhood[];
 }
 
-export const MAX_RULE_SIZE = 16;
+export const MAX_RULE_SIZE = 8;
 
 export function getComputeShader(
     { width, height, workGroupSize, neighborhoods }: ComputeShaderParams
@@ -72,9 +72,12 @@ const WORKGROUP_SIZE : u32 = ${workGroupSize}u;
 
 
 struct RuleSet {
+    shape: u32,  // 0: square, 1: circle, 2: von neumann
+    distance: vec2i, // x: minDist, y: maxDist
+
     // vec3f represents:
     // x:   positive: life; negative: death; > 999 = not defined (end of defined rules)
-    // y,z: described range
+    // y,z: density range at which the rule applies.
     // (padded to vec4 for alignment)
     rules: array<vec3f, ${MAX_RULE_SIZE}>,
 };
@@ -82,7 +85,6 @@ struct RuleSet {
 @group(0) @binding(0) var computeTextureSrc: texture_storage_2d<r32uint, read>;
 @group(0) @binding(1) var computeTextureDst: texture_storage_2d<r32uint, read_write>;
 
-// Array must have stride multiple of 16 bytes.
 @group(0) @binding(2) var<uniform> neighborhoods: array<RuleSet, ${neighborhoods.length}>;
 
 
@@ -106,22 +108,6 @@ fn searchSquare(minDist: i32, maxDist: i32, idx: vec2<u32>) -> f32 {
     let neighborhoodArea = neighborhoodWidth * neighborhoodWidth;
     let subArea = f32((minDist * 2 - 1) * (minDist * 2 - 1));
     return f32(neighborCount) / (neighborhoodArea - subArea);
-}
-
-fn searchNeumann(minDist: i32, maxDist: i32, id: vec2<u32>) -> f32 {
-    // TODO von neumann with min dist
-    // for (var yOffset = -maxDist; yOffset <= maxDist; yOffset += 1) {
-    // let x_search = maxDist - abs(yOffset);
-    //     for (var xOffset = -x_search; xOffset <= x_search; xOffset += 1) {
-    //         if (xOffset == 0 && yOffset == 0) { continue; }
-    //         var x = wrapCoord(x + xOffset);
-    //         var y = wrapCoord(y + yOffset);
-    //         if (readBuffer[y * resolution + x] == next_state) {
-    //             neighborCount += 1;
-    //         }
-    //     }
-    // }
-    return 0.0;
 }
 
 // Source: https://vectrx.substack.com/p/webgpu-cellular-automata
@@ -152,6 +138,11 @@ fn searchCircle(minDist: i32, maxDist: i32, idx: vec2<u32>) -> f32 {
     return f32(aliveCount) / f32(totalCount);
 }
 
+fn searchNeumann(minDist: i32, maxDist: i32, id: vec2<u32>) -> f32 {
+    // TODO von neumann with min dist
+    return 0.0;
+}
+
 
 @compute @workgroup_size(
     WORKGROUP_SIZE,
@@ -163,24 +154,39 @@ fn searchCircle(minDist: i32, maxDist: i32, idx: vec2<u32>) -> f32 {
     let old_state = textureLoad(computeTextureSrc, idx);
     var new_state = old_state.x;
 
-    ${ neighborhoods.map(getNeighborhoodCall).join('\n') }
+    for (var n_idx: u32 = 0u; n_idx < ${neighborhoods.length}u; n_idx++) {
+        let neighborhood = neighborhoods[n_idx];
 
-    textureStore(computeTextureDst, idx, vec4u(new_state, old_state.x, old_state.y, old_state.z));
-}`
-}
+        // early out if no rules defined
+        if (neighborhood.rules[0].x > 999.0) {
+            continue;
+        }
 
-function getNeighborhoodCall(neighborhood: Neighborhood, n_idx: number) {
-    const { minDist, maxDist, } = neighborhood;
-    const neighborhoodFnName = neighborhood.shape === 'CIRCLE' ? 'searchCircle' : 'searchSquare';
-    return `
-{
-    let density = ${neighborhoodFnName} ( ${minDist}, ${maxDist}, idx );
-    for (var i: u32 = 0; i < ${MAX_RULE_SIZE}; i++) {
-        let rule = neighborhoods[${n_idx}].rules[i];
-        if (rule.x > 999) { break; }
-        if (density >= rule.y && density <= rule.z) {
-            new_state = select(0u, 1u, rule.x >= 0);
+        var density: f32 = 0.0;
+
+        if (neighborhood.shape == 0u) {
+            density = searchSquare(
+                neighborhood.distance.x,
+                neighborhood.distance.y,
+                idx
+            );
+        } else if (neighborhood.shape == 1u) {
+            density = searchCircle(
+                neighborhood.distance.x,
+                neighborhood.distance.y,
+                idx
+            );
+        }
+
+        for (var r_idx: u32 = 0u; r_idx < ${MAX_RULE_SIZE}u; r_idx++) {
+            let rule = neighborhoods[n_idx].rules[r_idx];
+            if (rule.x > 999) { break; }
+            if (density >= rule.y && density <= rule.z) {
+                new_state = select(0u, 1u, rule.x >= 0);
+            }
         }
     }
+
+    textureStore(computeTextureDst, idx, vec4u(new_state, old_state.x, old_state.y, old_state.z));
 }`
 }

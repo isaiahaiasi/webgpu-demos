@@ -16,4 +16,8 @@ export const demoData = {
         title: "Larger Life",
         description: "More cellular automata, supporting larger neighborhoods.",
     },
+    "multi-neighbor-life": {
+        title: "Multi-Neighbor Life",
+        description: "Cellular automata with multiple discrete neighborhoods.",
+    },
 };
