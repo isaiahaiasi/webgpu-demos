@@ -1,0 +1,48 @@
+---
+import RenderMediaControls from "../../../components/RenderMediaControls/RenderMediaControls.astro";
+import Layout from "../../../layouts/Layout.astro";
+---
+
+<Layout title="Game of Life">
+	<main>
+		<header>
+			<h1>Multi-Neighborhood Cellular Automata</h1>
+		</header>
+		<p>
+			Similar to Conway's Game of Life/"Larger Life", but each cell can
+			have multiple neighborhoods with different shapes and rules.
+			Inspired by slackermanz blog post on the subject: <a
+				href="https://slackermanz.com/understanding-multiple-neighborhood-cellular-automata/"
+				target="_blank"
+				rel="noopener noreferrer"
+				>Understanding Multiple Neighborhood Cellular Automata</a
+			>.
+		</p>
+		<div>
+			<div class="warn">FLASHING LIGHTS WARNING!</div>
+		</div>
+		<div id="wgpu-errors"></div>
+		<div class="canvas-container">
+			<canvas id="wgpu-canvas"></canvas>
+			<RenderMediaControls />
+			<div id="gui-container" class="gui-container"></div>
+		</div>
+	</main>
+</Layout>
+
+<script>
+	import { main } from "./main";
+
+	main("wgpu-canvas", "wgpu-errors", "gui-container");
+</script>
+
+<style>
+	.warn {
+		background-color: rgb(216, 74, 22);
+		border-radius: 5px;
+		font-weight: bold;
+		padding: 4px 6px 5px 6px;
+		margin: 0.5rem auto;
+		text-align: center;
+	}
+</style>

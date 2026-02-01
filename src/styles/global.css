@@ -97,7 +97,7 @@ button:focus {
 .canvas-container canvas {
 	margin: auto;
 	width: 100%;
-	max-width: 1600px;
+	max-width: 1200px;
 
 	&.paused {
 		outline: 1px solid red;
