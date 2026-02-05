@@ -36,6 +36,14 @@ export class MultiLifeGui extends BaseGui {
 
 		const ruleControls = this.gui.addFolder("Rules");
 
+		ruleControls.add({ preset: 0}, "preset", [0,1,2])
+			.name("Preset")
+			.onChange((v: number) => {
+				// This may or may not trigger a restart,
+				// depending on whether a static property (eg width) is defined on the preset.
+				this.renderer.updateSettings(this.renderer.presets[v])
+			});
+
 		ruleControls.add(
 			this.renderer.loop.frametime,
 			"min", 0, 1, 0.01)

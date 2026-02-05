@@ -3,11 +3,6 @@ import { StructBufferAsset, type ViewDescriptor } from "../../../utils/BufferAss
 import { getRenderShader, getComputeShader, MAX_RULE_SIZE, MAX_SHAPES_PER_NEIGHBORHOOD, type Neighborhood, type Rule } from "./shaders";
 
 
-type Game = {
-	neighborhoods: Neighborhood[];
-	rules: Rule[];
-}
-
 export type MultiLifeRendererSettings = {
 	workGroupSize: number; // Options: 4, 8, 16
 	width: number;
@@ -23,7 +18,7 @@ export type MultiLifeRendererSettings = {
 };
 
 
-const games: Partial<MultiLifeRendererSettings>[] = [
+const presets: Partial<MultiLifeRendererSettings>[] = [
 	{
 		neighborhoods: [
 			{
@@ -158,8 +153,8 @@ const games: Partial<MultiLifeRendererSettings>[] = [
 function getDefaultSettings(): MultiLifeRendererSettings {
 	return {
 		workGroupSize: 16, // Options: 4, 8, 16
-		width: 1024,
-		height: 512,
+		width: 600,
+		height: 600,
 		minFrameTime: .0, // minimum frame time in seconds
 		color: {
 			alive: [0.8, 0.9, 1, 1], // RGB for alive cells
@@ -230,6 +225,7 @@ function getDefaultSettings(): MultiLifeRendererSettings {
 
 
 export class MultiLifeRenderer extends BaseRenderer {
+	presets: Partial<MultiLifeRendererSettings>[] = presets;
 	settings: MultiLifeRendererSettings;
 
 	// Rendering state
@@ -255,7 +251,7 @@ export class MultiLifeRenderer extends BaseRenderer {
 
 	constructor(
 		canvas: HTMLCanvasElement,
-		settings?: Partial<MultiLifeRendererSettings>,
+		settings: Partial<MultiLifeRendererSettings> = {},
 		label = "mnca") {
 		super(canvas, label);
 		this.settings = { ...getDefaultSettings(), ...settings };
@@ -265,6 +261,7 @@ export class MultiLifeRenderer extends BaseRenderer {
 
 	async restart() {
 		this.currentBindGroupIndex = 0;
+
 		await super.restart();
 	}
 
@@ -541,6 +538,41 @@ export class MultiLifeRenderer extends BaseRenderer {
 		}
 
 		this.rulesBuffer.write();
+	}
+
+	updateSettings(settings: Partial<MultiLifeRendererSettings>) {
+		const updateRules = settings.rules !== this.settings.rules;
+		const updateNeighborhoods = settings.neighborhoods !== this.settings.neighborhoods;
+		const updateColors = settings.color !== this.settings.color;
+
+		// Determine if restart is required
+		// (neighborhood length is hard-coded currently, so that requires a restart)
+		const staticSettings: (keyof MultiLifeRendererSettings)[] = [
+			"workGroupSize", "width", "height", "initialDensity",
+		];
+
+		let doReset = staticSettings.some(k =>
+			settings[k] &&
+			settings[k] !== this.settings[k]
+		);
+
+		if (settings.neighborhoods && settings.neighborhoods.length !== this.settings.neighborhoods.length) {
+			doReset = true;
+		}
+
+		console.log({doReset, updateRules, updateNeighborhoods, updateColors});
+
+		Object.entries(settings).forEach(([k, v]) => {
+			this.settings[k] = v;
+		});
+
+		if (doReset) {
+			this.restart();
+		} else {
+			if (updateColors) this.updateColorBuffer();
+			if (updateNeighborhoods) this.updateNeighborhoodBuffer();
+			if (updateRules) this.updateRulesBuffer();
+		}
 	}
 
 	initState(initArray: Uint32Array) {
