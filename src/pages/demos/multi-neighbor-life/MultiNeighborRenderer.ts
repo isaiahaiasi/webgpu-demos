@@ -1,6 +1,7 @@
 import { BaseRenderer } from "../../../utils/BaseRenderer";
 import { SimpleBufferAsset, StructBufferAsset, type ViewDescriptor } from "../../../utils/BufferAsset";
-import { getRenderShader, getComputeShader, MAX_RULE_SIZE } from "./shaders";
+import { WorleyNoiseGenerator } from "./GenerateNoise";
+import { getRenderShader, getComputeShader, MAX_RULE_SIZE, MAX_SHAPES_PER_NEIGHBORHOOD } from "./shaders";
 
 
 type NeighborhoodShape = 'SQUARE' | 'CIRCLE'; // TODO: implement Von Neumann.
@@ -20,14 +21,17 @@ export type MultiLifeRendererSettings = {
 	};
 	initialDensity: number;
 	neighborhoods: {
-		shape: NeighborhoodShape;
-		minDist: number;
-		maxDist: number;
-		rules: {
-			result: RuleResult;
-			minDensity: number;
-			maxDensity: number;
-		}[]
+		shapes: {
+			type: NeighborhoodShape;
+			minDist: number;
+			maxDist: number;
+		}[];
+	}[];
+	rules: {
+		neighborhoodIndex: number;
+		result: RuleResult;
+		minDensity: number;
+		maxDensity: number;
 	}[];
 };
 
@@ -46,40 +50,60 @@ function getDefaultSettings(): MultiLifeRendererSettings {
 		initialDensity: .2,
 		neighborhoods: [
 			{
-				shape: 'CIRCLE',
-				minDist: 5,
-				maxDist: 7,
-				rules: [{
-					result: 1,
-					minDensity: 0.210,
-					maxDensity: 0.220,
-				}, {
-					result: -1,
-					minDensity: 0.350,
-					maxDensity: 0.500,
-				}, {
-					result: -1,
-					minDensity: 0.750,
-					maxDensity: 0.850,
-				}]
+				shapes: [
+					{
+						type: 'CIRCLE',
+						minDist: 4,
+						maxDist: 6,
+					}
+				]
 			},
 			{
-				shape: 'CIRCLE',
-				minDist: 1,
-				maxDist: 3,
-				rules: [{
-					result: -1,
-					minDensity: 0.1,
-					maxDensity: 0.280,
-				}, {
-					result: 1,
-					minDensity: 0.430,
-					maxDensity: 0.550,
-				}, {
-					result: -1,
-					minDensity: 0.120,
-					maxDensity: 0.150,
-				}],
+				shapes: [
+					{
+						type: 'CIRCLE',
+						minDist: 0,
+						maxDist: 3,
+					}
+				]
+			}
+		],
+		rules: [
+			{
+				neighborhoodIndex: 0,
+				result: 1,
+				minDensity: 0.210,
+				maxDensity: 0.220,
+			},
+			{
+				neighborhoodIndex: 0,
+				result: -1,
+				minDensity: 0.350,
+				maxDensity: 0.500,
+			},
+			{
+				neighborhoodIndex: 0,
+				result: -1,
+				minDensity: 0.750,
+				maxDensity: 0.950,
+			},
+			{
+				neighborhoodIndex: 1,
+				result: -1,
+				minDensity: 0.1,
+				maxDensity: 0.280,
+			},
+			{
+				neighborhoodIndex: 1,
+				result: 1,
+				minDensity: 0.430,
+				maxDensity: 0.550,
+			},
+			{
+				neighborhoodIndex: 0,
+				result: -1,
+				minDensity: 0.120,
+				maxDensity: 0.150,
 			}
 		],
 	};
@@ -108,7 +132,8 @@ export class MultiLifeRenderer extends BaseRenderer {
 	currentBindGroupIndex: 1 | 0 = 0; // Ping Pong Buffer index
 
 	// Buffer/texture assets
-	neighborHoodBuffer: StructBufferAsset;
+	neighborhoodBuffer: StructBufferAsset;
+	rulesBuffer: StructBufferAsset;
 	colorBuffer: GPUBuffer;
 	cellTextures: GPUTexture[];
 
@@ -234,28 +259,54 @@ export class MultiLifeRenderer extends BaseRenderer {
 			);
 		}
 
-		const views: Record<string, ViewDescriptor> = Object.fromEntries(
-			this.settings.neighborhoods.flatMap((_, i) =>{
-				const offset = (4 + 4 * MAX_RULE_SIZE) * i * 4;
+		const neighborhoodViews: Record<string, ViewDescriptor> = Object.fromEntries(
+			this.settings.neighborhoods.flatMap((_, i) => {
+				const shapeStride = 16; // 4 u32s per shape (type, minDist, maxDist, padding)
+				const baseOffset = i * (4 + MAX_SHAPES_PER_NEIGHBORHOOD * shapeStride);
 				return [
-					[`shape_${i}`, { type: "u32", offset: offset + 0, length: 1 }],
-					[`distance_${i}`, { type: "i32", offset: offset + 8, length: 2 }],
-					[`rules_${i}`, { type: "f32", offset: offset + 16, length: MAX_RULE_SIZE * 4 }],
+					[`shape_count_${i}`, { type: "u32", offset: baseOffset, length: 1 }],
+					...Array.from({ length: MAX_SHAPES_PER_NEIGHBORHOOD }, (_, shapeIdx) => {
+						const shapeOffset = baseOffset + 4 + shapeIdx * shapeStride;
+						return [
+							[`shape_type_${i}_${shapeIdx}`, { type: "u32", offset: shapeOffset, length: 1 }],
+							[`shape_distance_${i}_${shapeIdx}`, { type: "i32", offset: shapeOffset + 4, length: 2 }],
+						];
+					}).flat()
 				];
 			})
 		);
 
-		this.neighborHoodBuffer = new StructBufferAsset(
+
+		this.neighborhoodBuffer = new StructBufferAsset(
 			this.device,
 			{
 				usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-				label: `${this.label}::uniform::neighborhood-rules`,
-				size: (4 + 4 * MAX_RULE_SIZE) * this.settings.neighborhoods.length * 4,
+				label: `${this.label}::uniform::neighborhoods`,
+				size: Math.max(256, this.settings.neighborhoods.length * (4 + MAX_SHAPES_PER_NEIGHBORHOOD * 16)),
 			},
-			views
+			neighborhoodViews
+		);
+
+		// Create rules buffer
+		const rulesViews: Record<string, ViewDescriptor> = Object.fromEntries(
+			this.settings.rules.flatMap((_, i) => ([
+					[`rule_${i}`, { type: "f32", offset: i * 16, length: 4 }],
+				])
+			)
+		);
+
+		this.rulesBuffer = new StructBufferAsset(
+			this.device,
+			{
+				usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+				label: `${this.label}::uniform::rules`,
+				size: MAX_RULE_SIZE * 16,
+			},
+			rulesViews
 		);
 
 		this.updateNeighborhoodBuffer();
+		this.updateRulesBuffer();
 	}
 
 	protected async makePipeline() {
@@ -284,7 +335,8 @@ export class MultiLifeRenderer extends BaseRenderer {
 				entries: [
 					{ binding: 0, resource: this.cellTextures[0].createView() },
 					{ binding: 1, resource: this.cellTextures[1].createView() },
-					{ binding: 2, resource: { buffer: this.neighborHoodBuffer.buffer } },
+					{ binding: 2, resource: { buffer: this.neighborhoodBuffer.buffer } },
+					{ binding: 3, resource: { buffer: this.rulesBuffer.buffer } },
 				]
 			}),
 			this.device.createBindGroup({
@@ -293,7 +345,8 @@ export class MultiLifeRenderer extends BaseRenderer {
 				entries: [
 					{ binding: 0, resource: this.cellTextures[1].createView() },
 					{ binding: 1, resource: this.cellTextures[0].createView() },
-					{ binding: 2, resource: { buffer: this.neighborHoodBuffer.buffer } },
+					{ binding: 2, resource: { buffer: this.neighborhoodBuffer.buffer } },
+					{ binding: 3, resource: { buffer: this.rulesBuffer.buffer } },
 				]
 			}),
 		];
@@ -338,28 +391,48 @@ export class MultiLifeRenderer extends BaseRenderer {
 		this.device.queue.writeBuffer(this.colorBuffer, 0, newColors);
 	}
 
-	/** Update GPU uniform buffer with new rules. */
+	/** Update GPU uniform buffer with new neighborhoods. */
 	updateNeighborhoodBuffer() {
 		for (let nIdx = 0; nIdx < this.settings.neighborhoods.length; nIdx++) {
-			this.neighborHoodBuffer.setOne(`shape_${nIdx}`,
-				this.settings.neighborhoods[nIdx].shape === 'CIRCLE' ? [1] : [0]
-			);
-			this.neighborHoodBuffer.setOne(`distance_${nIdx}`, [
-				this.settings.neighborhoods[nIdx].minDist,
-				this.settings.neighborhoods[nIdx].maxDist,
-			]);
-			this.neighborHoodBuffer.setOne(
-				`rules_${nIdx}`,
-				this.settings.neighborhoods[nIdx].rules
-					.flatMap(r => [
-						r.result,
-						r.minDensity,
-						r.maxDensity,
-						0, // padding
-				])
-			);
+			const neighborhood = this.settings.neighborhoods[nIdx];
+			
+			// Set shape count
+			this.neighborhoodBuffer.setOne(`shape_count_${nIdx}`, [neighborhood.shapes.length]);
+
+			// Set each shape
+			for (let shapeIdx = 0; shapeIdx < MAX_SHAPES_PER_NEIGHBORHOOD; shapeIdx++) {
+				if (shapeIdx < neighborhood.shapes.length) {
+					const shape = neighborhood.shapes[shapeIdx];
+					this.neighborhoodBuffer.setOne(`shape_type_${nIdx}_${shapeIdx}`,
+						[shape.type === 'CIRCLE' ? 1 : 0]
+					);
+					this.neighborhoodBuffer.setOne(`shape_distance_${nIdx}_${shapeIdx}`, [
+						shape.minDist,
+						shape.maxDist,
+					]);
+				} else {
+					// Set unused shapes to invalid values
+					this.neighborhoodBuffer.setOne(`shape_type_${nIdx}_${shapeIdx}`, [999]);
+					this.neighborhoodBuffer.setOne(`shape_distance_${nIdx}_${shapeIdx}`, [0, 0]);
+				}
+			}
 		}
 
-		this.neighborHoodBuffer.write();
+		this.neighborhoodBuffer.write();
+	}
+
+	/** Update GPU uniform buffer with new rules. */
+	updateRulesBuffer() {
+		for (let rIdx = 0; rIdx < this.settings.rules.length; rIdx++) {
+			const rule = this.settings.rules[rIdx];
+			this.rulesBuffer.setOne(`rule_${rIdx}`, [
+				rule.neighborhoodIndex,
+				rule.result,
+				rule.minDensity,
+				rule.maxDensity,
+			]);
+		}
+
+		this.rulesBuffer.write();
 	}
 }
