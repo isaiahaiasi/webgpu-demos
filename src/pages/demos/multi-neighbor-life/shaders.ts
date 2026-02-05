@@ -1,14 +1,16 @@
-type Neighborhood = {
+type ShapeType ='CIRCLE' | 'SQUARE'; // TODO: von neumann
+
+export type Neighborhood = {
     shapes: {
-        type: 'CIRCLE' | 'SQUARE'; // TODO: von neumann
+        type: ShapeType;
         minDist: number;
         maxDist: number;
     }[];
 }
 
-type Rule = {
+export type Rule = {
     neighborhoodIndex: number;
-    result: number;
+    result: -1 | 1 | 1000; // < 0 = death; >= 0 = life; > 999 = out of range / null rule
     minDensity: number;
     maxDensity: number;
 }
@@ -76,7 +78,7 @@ fn fs(@location(0) uv : vec2f) -> @location(0) vec4f {
 }
 
 export function getComputeShader(
-    { width, height, workGroupSize, neighborhoods, rules }: ComputeShaderParams
+    { width, height, workGroupSize, neighborhoods }: ComputeShaderParams
 ) {
     return /* wgsl */`
 const BOARD = vec2i(${width}, ${height});
@@ -89,7 +91,6 @@ struct Shape {
 };
 
 struct Neighborhood {
-    shapeCount: u32,
     shapes: array<Shape, ${MAX_SHAPES_PER_NEIGHBORHOOD}>,
 };
 
@@ -111,10 +112,9 @@ struct Rule {
 fn searchSquare(minDist: i32, maxDist: i32, idx: vec2<u32>) -> f32 {
     var neighborCount : u32 = 0u;
 
-    for (var y: i32 = -maxDist; y <= maxDist; y+= 1) {
-        for (var x: i32 = -maxDist; x <= maxDist; x+= 1) {
-            // Skip cells inside the minimum distance
-            if (minDist > 0 && abs(x) < minDist && abs(y) < minDist) {
+    for (var y: i32 = -maxDist; y <= maxDist; y += 1) {
+        for (var x: i32 = -maxDist; x <= maxDist; x += 1) {
+            if (abs(x) < minDist && abs(y) < minDist) {
                 continue;
             }
 
@@ -127,14 +127,13 @@ fn searchSquare(minDist: i32, maxDist: i32, idx: vec2<u32>) -> f32 {
 
     let neighborhoodWidth = f32(maxDist * 2 + 1);
     let neighborhoodArea = neighborhoodWidth * neighborhoodWidth;
-    
-    // Calculate the area to subtract (inner square that's excluded)
+
     var subArea: f32 = 0.0;
     if (minDist > 0) {
         let innerWidth = f32((minDist - 1) * 2 + 1);
         subArea = innerWidth * innerWidth;
     }
-    
+
     return f32(neighborCount) / (neighborhoodArea - subArea);
 }
 
@@ -156,7 +155,8 @@ fn searchCircle(minDist: i32, maxDist: i32, idx: vec2<u32>) -> f32 {
             }
 
             let coord = vec2i(idx) + vec2i(xOffset, yOffset);
-            let neighborIdx = vec2u((coord + BOARD) % BOARD);
+            //let neighborIdx = vec2u((coord + BOARD) % BOARD);
+            let neighborIdx = vec2u((coord + vec2i(BOARD)) % vec2i(BOARD));
 
             aliveCount += textureLoad(computeTextureSrc, neighborIdx).x;
             totalCount += 1;
@@ -170,25 +170,20 @@ fn searchCircle(minDist: i32, maxDist: i32, idx: vec2<u32>) -> f32 {
     return f32(aliveCount) / f32(totalCount);
 }
 
-fn searchNeumann(minDist: i32, maxDist: i32, id: vec2<u32>) -> f32 {
-    // TODO von neumann with min dist
-    return 0.0;
-}
-
 fn computeNeighborhoodDensity(neighborhoodIdx: u32, idx: vec2<u32>) -> f32 {
     let neighborhood = neighborhoods[neighborhoodIdx];
     var totalDensity: f32 = 0.0;
     var validShapes: u32 = 0u;
 
-    for (var shapeIdx: u32 = 0u; shapeIdx < neighborhood.shapeCount; shapeIdx++) {
+    for (var shapeIdx: u32 = 0u; shapeIdx < ${MAX_SHAPES_PER_NEIGHBORHOOD}; shapeIdx++) {
         let shape = neighborhood.shapes[shapeIdx];
-        
-        // Skip invalid shapes
-        if (shape.shapeType > 900u) {
-            continue;
-        }
 
         var shapeDensity: f32 = 0.0;
+
+        // Skip invalid shapes
+        if (shape.shapeType > 900u) {
+            break;
+        }
 
         if (shape.shapeType == 0u) {
             shapeDensity = searchSquare(
@@ -202,16 +197,12 @@ fn computeNeighborhoodDensity(neighborhoodIdx: u32, idx: vec2<u32>) -> f32 {
                 shape.distance.y,
                 idx
             );
-        } else if (shape.shapeType == 2u) {
-            shapeDensity = searchNeumann(
-                shape.distance.x,
-                shape.distance.y,
-                idx
-            );
+        } else {
+            validShapes -= 1u;
         }
 
-        totalDensity += shapeDensity;
         validShapes += 1u;
+        totalDensity += shapeDensity;
     }
 
     // Return average density across all shapes in the neighborhood
@@ -235,22 +226,22 @@ fn computeNeighborhoodDensity(neighborhoodIdx: u32, idx: vec2<u32>) -> f32 {
     // Cache neighborhood densities to avoid recomputing
     var densityCache: array<f32, ${neighborhoods.length}>;
     var densityCached: array<bool, ${neighborhoods.length}>;
-    
+
     for (var i: u32 = 0u; i < ${neighborhoods.length}u; i++) {
         densityCached[i] = false;
     }
 
     // Process rules in order
-    for (var r_idx: u32 = 0u; r_idx < ${rules.length}u; r_idx++) {
+    for (var r_idx: u32 = 0u; r_idx < ${MAX_RULE_SIZE}u; r_idx++) {
         let rule = rules[r_idx];
         
-        // Check if rule is defined
-        if (rule.data.y > 999.0) {
-            break; 
+        // Check if end of rule list reached
+        if (rule.data.y > 900.0) {
+            break;
         }
 
         let neighborhoodIdx = u32(rule.data.x);
-        
+
         // Get or compute density for this neighborhood
         var density: f32;
         if (!densityCached[neighborhoodIdx]) {
@@ -263,7 +254,7 @@ fn computeNeighborhoodDensity(neighborhoodIdx: u32, idx: vec2<u32>) -> f32 {
 
         // Apply rule if density is in range
         if (density >= rule.data.z && density <= rule.data.w) {
-            new_state = select(0u, 1u, rule.data.y >= 0.0);
+            new_state = select(0u, 1u, rule.data.y > 0.0);
         }
     }
 
