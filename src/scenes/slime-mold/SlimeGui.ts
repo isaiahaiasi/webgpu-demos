@@ -1,4 +1,4 @@
-import { BaseGui } from "../../../utils/BaseGui";
+import { BaseGui } from "../../utils/BaseGui";
 import type { SlimeRenderer } from "./SlimeRenderer";
 
 export class SlimeGui extends BaseGui {

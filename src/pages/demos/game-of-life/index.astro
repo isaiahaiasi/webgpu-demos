@@ -26,7 +26,7 @@ import Layout from "../../../layouts/Layout.astro";
 </Layout>
 
 <script>
-	import { RendererHandler } from "./main";
-	
+	import { RendererHandler } from "../../../scenes/cellular-automata/01_life/setup";
+
 	new RendererHandler('wgpu-canvas', 'wgpu-errors', 'wgpu-gui');
 </script>

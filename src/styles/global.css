@@ -4,6 +4,9 @@
 	--col-gray-2: #1b1b1e;
 	--col-gray-3: #252529;
 
+	--col-gray-7: #9696a7;
+	--col-gray-8: #aaaabc;
+
 	--col-blue-0: #183279;
 	--col-blue-1: #2d58b4;
 	--col-blue-2: #3b82f6;
@@ -78,6 +81,14 @@ button:active {
 button:focus {
 	outline: 2px solid var(--col-blue-2);
 	outline-offset: 2px;
+}
+
+a:link {
+	color: var(--col-gray-8);
+}
+
+a:visited {
+	color: var(--col-gray-7);
 }
 
 .canvas-container {

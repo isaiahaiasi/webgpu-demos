@@ -15,8 +15,8 @@ import Layout from "../../../layouts/Layout.astro";
 </Layout>
 
 <script>
+	import { TriangleRenderer } from "../../../scenes/triangle/TriangleRenderer";
 	import { initRender } from "../../../utils/initRender";
-	import { TriangleRenderer } from "./TriangleRenderer";
 
 	initRender(TriangleRenderer, "triangle");
 </script>

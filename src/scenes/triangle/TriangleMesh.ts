@@ -1,4 +1,4 @@
-import type { MeshAsset } from "../../../utils/types";
+import type { MeshAsset } from "../../utils/types";
 
 export class TriangleMesh implements MeshAsset {
 	buffer: GPUBuffer;

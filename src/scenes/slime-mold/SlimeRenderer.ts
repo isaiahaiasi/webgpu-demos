@@ -1,5 +1,5 @@
-import { BaseRenderer } from "../../../utils/BaseRenderer";
-import { SimpleBufferAsset, StructBufferAsset } from "../../../utils/BufferAsset";
+import { BaseRenderer } from "../../utils/BaseRenderer";
+import { SimpleBufferAsset, StructBufferAsset } from "../../utils/BufferAsset";
 
 import renderShaderCode from "./shaders/render.wgsl?raw";
 import computeShaderCode from "./shaders/compute.wgsl?raw";

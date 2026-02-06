@@ -10,7 +10,7 @@ import Layout from "../../../layouts/Layout.astro";
 		<div class="canvas-container">
 			<canvas id="wgpu-canvas"></canvas>
 			<RenderMediaControls />
-			
+
 			<div class="gui-container" id="wgpu-gui"></div>
 		</div>
 		<RenderStats />
@@ -20,9 +20,9 @@ import Layout from "../../../layouts/Layout.astro";
 <script>
 	import { initRenderMediaControls } from "../../../components/RenderMediaControls/initRenderMediaControls";
 	import { getRenderStats } from "../../../components/RenderStats/getRenderStats";
+	import { SlimeGui } from "../../../scenes/slime-mold/SlimeGui";
+	import { SlimeRenderer } from "../../../scenes/slime-mold/SlimeRenderer";
 	import { PauseHandler } from "../../../utils/PauseHandler";
-	import { SlimeGui } from "./SlimeGui";
-	import { SlimeRenderer } from "./SlimeRenderer";
 
 	const canvasId = "wgpu-canvas";
 	const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -38,12 +38,11 @@ import Layout from "../../../layouts/Layout.astro";
 	initRenderMediaControls(renderer);
 
 	const stats = await getRenderStats();
-	stats.add("fps", (v) => (1 / v).toFixed(1));
-	stats.add("js", (v) => v.toFixed(1));
-	stats.add("agents", (v) => v ? `${(v / 1000).toFixed(1)}µs` : "N/A");
-	stats.add("trails", (v) => v ? `${(v / 1000).toFixed(1)}µs` : "N/A");
-	stats.add("render", (v) => v ? `${(v / 1000).toFixed(1)}µs` : "N/A");
-
+	stats.add("fps", (v) => `${(1 / v).toFixed(1)}`);
+	stats.add("js", (v) => `${v.toFixed(1)}s`);
+	stats.add("agents", (v) => (v ? `${(v / 1000).toFixed(1)}µs` : "N/A"));
+	stats.add("trails", (v) => (v ? `${(v / 1000).toFixed(1)}µs` : "N/A"));
+	stats.add("render", (v) => (v ? `${(v / 1000).toFixed(1)}µs` : "N/A"));
 
 	renderer.onRender(() => {
 		stats.update("js", renderer.loop.jsTime);

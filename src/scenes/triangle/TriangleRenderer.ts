@@ -2,7 +2,7 @@ import { mat4 } from "wgpu-matrix";
 import { TriangleMesh } from "./TriangleMesh";
 
 import shader from "./shader.wgsl?raw";
-import { BaseRenderer } from "../../../utils/BaseRenderer";
+import { BaseRenderer } from "../../utils/BaseRenderer";
 
 
 export class TriangleRenderer
