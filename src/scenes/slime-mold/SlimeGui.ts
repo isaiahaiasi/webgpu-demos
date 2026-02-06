@@ -4,9 +4,7 @@ import type { SlimeRenderer } from "./SlimeRenderer";
 export class SlimeGui extends BaseGui {
 	declare renderer: SlimeRenderer;
 
-	protected async initGui() {
-		await super.initGui();
-
+	addGuiControls() {
 		this.showStats = false;
 
 		const initialOpts = this.gui.addFolder("Initial");

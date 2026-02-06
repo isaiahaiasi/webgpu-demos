@@ -1,16 +1,12 @@
 import { BaseGui } from "../../../utils/BaseGui";
 import type { MultiLifeRenderer } from "./MultiNeighborRenderer";
+import { presets } from "./presets";
 
 export class MultiLifeGui extends BaseGui {
 
 	declare renderer: MultiLifeRenderer;
 
-	async initGui() {
-		await super.initGui();
-		this.addControls();
-	}
-
-	addControls() {
+	addGuiControls() {
 		const staticControls = this.gui.addFolder("Static");
 		staticControls.add(this.renderer.settings, "workGroupSize", [4, 8, 16])
 			.name("WorkGroupSize")
@@ -41,7 +37,7 @@ export class MultiLifeGui extends BaseGui {
 			.onChange((v: number) => {
 				// This may or may not trigger a restart,
 				// depending on whether a static property (eg width) is defined on the preset.
-				this.renderer.updateSettings(this.renderer.presets[v])
+				this.renderer.updateSettings(presets[v])
 			});
 
 		ruleControls.add(

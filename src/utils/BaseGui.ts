@@ -3,9 +3,7 @@ import Stats from 'stats.js';
 import type { BaseRenderer } from './BaseRenderer';
 
 
-export class BaseGui {
-
-
+export abstract class BaseGui {
 	public label: string;
 
 	protected container: HTMLElement;
@@ -25,6 +23,7 @@ export class BaseGui {
 		}
 	}
 
+	abstract addGuiControls(): void;
 
 	constructor(renderer: BaseRenderer, containerId?: string, label?: string) {
 		this.label = label ?? 'gui';
@@ -48,6 +47,7 @@ export class BaseGui {
 			await this.initGui();
 			this.container.appendChild(this.gui.domElement);
 			this.addDefaultGuiOptions();
+			this.addGuiControls();
 		}
 	}
 

@@ -48,8 +48,8 @@ export class RendererHandler {
 
 	async init(presetName: PresetName) {
 		try {
-			await this.gui.init();
 			await this.renderer.initialize(presets[presetName]);
+			await this.gui.init();
 		} finally {
 			this.printErrors();
 		}

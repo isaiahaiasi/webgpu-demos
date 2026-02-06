@@ -5,12 +5,7 @@ export class LargerLifeGui extends BaseGui {
 
 	declare renderer: LargerLifeRenderer;
 
-	async initGui() {
-		await super.initGui();
-		this.addControls();
-	}
-
-	addControls() {
+	addGuiControls() {
 		const staticControls = this.gui.addFolder("Static");
 		staticControls.add(this.renderer.settings, "workGroupSize", [4, 8, 16])
 			.name("WorkGroupSize")
