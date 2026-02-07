@@ -1,5 +1,5 @@
 ---
-import RenderMediaControls from "../../../components/RenderMediaControls/RenderMediaControls.astro";
+import { MncaScene } from "../../../components/Scenes/MncaScene";
 import Layout from "../../../layouts/Layout.astro";
 ---
 
@@ -21,20 +21,9 @@ import Layout from "../../../layouts/Layout.astro";
 		<div>
 			<div class="warn">FLASHING LIGHTS WARNING!</div>
 		</div>
-		<div id="wgpu-errors"></div>
-		<div class="canvas-container">
-			<canvas id="wgpu-canvas"></canvas>
-			<RenderMediaControls />
-			<div id="gui-container" class="gui-container"></div>
-		</div>
+		<MncaScene client:only="solid-js" />
 	</main>
 </Layout>
-
-<script>
-	import { main } from "../../../scenes/cellular-automata/03_mnca/setup";
-
-	main("wgpu-canvas", "wgpu-errors", "gui-container");
-</script>
 
 <style>
 	.warn {

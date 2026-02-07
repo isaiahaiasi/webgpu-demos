@@ -1,22 +1,11 @@
 ---
-import RenderMediaControls from "../../../components/RenderMediaControls/RenderMediaControls.astro";
+import { TriangleScene } from "../../../components/Scenes/TriangleScene";
 import Layout from "../../../layouts/Layout.astro";
 ---
 
 <Layout title="Basic Triangle Shader">
 	<main>
 		<h1>Basic Triangle Shader</h1>
-		<div id="wgpu-errors"></div>
-		<div class="canvas-container">
-			<canvas id="wgpu-canvas"></canvas>
-			<RenderMediaControls />
-		</div>
+		<TriangleScene client:only="solid-js" />
 	</main>
 </Layout>
-
-<script>
-	import { TriangleRenderer } from "../../../scenes/triangle/TriangleRenderer";
-	import { initRender } from "../../../utils/initRender";
-
-	initRender(TriangleRenderer, "triangle");
-</script>

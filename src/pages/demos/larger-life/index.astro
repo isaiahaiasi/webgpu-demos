@@ -1,5 +1,5 @@
 ---
-import RenderMediaControls from "../../../components/RenderMediaControls/RenderMediaControls.astro";
+import { LargerLifeScene } from "../../../components/Scenes/LargerLifeScene";
 import Layout from "../../../layouts/Layout.astro";
 
 ---
@@ -17,20 +17,9 @@ import Layout from "../../../layouts/Layout.astro";
 		<div>
 			<div class="warn">FLASHING LIGHTS WARNING!</div>
 		</div>
-		<div id="wgpu-errors"></div>
-		<div class="canvas-container">
-			<canvas id="wgpu-canvas"></canvas>
-			<RenderMediaControls />
-			<div id="gui-container" class="gui-container"></div>
-		</div>
+		<LargerLifeScene client:only="solid-js"/>
 	</main>
 </Layout>
-
-<script>
-	import { main } from "../../../scenes/cellular-automata/02_larger-life/setup";
-
-	main("wgpu-canvas", "wgpu-errors", "gui-container");
-</script>
 
 <style>
 	.warn {

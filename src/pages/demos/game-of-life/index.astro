@@ -1,5 +1,5 @@
 ---
-import RenderMediaControls from "../../../components/RenderMediaControls/RenderMediaControls.astro";
+import { LifeScene } from "../../../components/Scenes/LifeScene";
 import Layout from "../../../layouts/Layout.astro";
 ---
 
@@ -17,16 +17,6 @@ import Layout from "../../../layouts/Layout.astro";
 			<button data-preset="inkspot">Inkspot</button>
 			<button data-preset="morley">Morley</button>
 		</div>
-		<div class="canvas-container">
-			<canvas id="wgpu-canvas"></canvas>
-			<RenderMediaControls />
-			<div id="wgpu-gui" class="gui-container"></div>
-		</div>
+		<LifeScene client:only="solid-js"/>
 	</main>
 </Layout>
-
-<script>
-	import { RendererHandler } from "../../../scenes/cellular-automata/01_life/setup";
-
-	new RendererHandler('wgpu-canvas', 'wgpu-errors', 'wgpu-gui');
-</script>

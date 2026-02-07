@@ -1,56 +1,31 @@
 ---
-import RenderMediaControls from "../../../components/RenderMediaControls/RenderMediaControls.astro";
 import RenderStats from "../../../components/RenderStats/RenderStats.astro";
+import { SlimeScene } from "../../../components/Scenes/SlimeScene";
 import Layout from "../../../layouts/Layout.astro";
 ---
 
 <Layout title="Slime Mold Simulation (compute shader)">
 	<main>
 		<h1>Slime Mold Simulation</h1>
-		<div class="canvas-container">
-			<canvas id="wgpu-canvas"></canvas>
-			<RenderMediaControls />
-
-			<div class="gui-container" id="wgpu-gui"></div>
-		</div>
-		<RenderStats />
+		<SlimeScene client:only="solid-js"/>
 	</main>
 </Layout>
 
 <script>
-	import { initRenderMediaControls } from "../../../components/RenderMediaControls/initRenderMediaControls";
-	import { getRenderStats } from "../../../components/RenderStats/getRenderStats";
-	import { SlimeGui } from "../../../scenes/slime-mold/SlimeGui";
-	import { SlimeRenderer } from "../../../scenes/slime-mold/SlimeRenderer";
-	import { PauseHandler } from "../../../utils/PauseHandler";
+	// const stats = await getRenderStats();
+	// stats.add("fps", (v) => `${(1 / v).toFixed(1)}`);
+	// stats.add("js", (v) => `${v.toFixed(1)}s`);
+	// stats.add("agents", (v) => (v ? `${(v / 1000).toFixed(1)}µs` : "N/A"));
+	// stats.add("trails", (v) => (v ? `${(v / 1000).toFixed(1)}µs` : "N/A"));
+	// stats.add("render", (v) => (v ? `${(v / 1000).toFixed(1)}µs` : "N/A"));
 
-	const canvasId = "wgpu-canvas";
-	const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
+	// renderer.onRender(() => {
+	// 	stats.update("js", renderer.loop.jsTime);
+	// 	stats.update("fps", renderer.loop.trueDeltaTime);
+	// 	stats.update("agents", renderer.perfTimes.get("agents"));
+	// 	stats.update("trails", renderer.perfTimes.get("trails"));
+	// 	stats.update("render", renderer.perfTimes.get("render"));
+	// });
 
-	if (!canvas) {
-		console.error(`Could not get canvas with id ${canvasId}`);
-	}
-
-	const renderer = new SlimeRenderer(canvas, "slime");
-	new SlimeGui(renderer, "wgpu-gui");
-	new PauseHandler(canvas).init(renderer);
-
-	initRenderMediaControls(renderer);
-
-	const stats = await getRenderStats();
-	stats.add("fps", (v) => `${(1 / v).toFixed(1)}`);
-	stats.add("js", (v) => `${v.toFixed(1)}s`);
-	stats.add("agents", (v) => (v ? `${(v / 1000).toFixed(1)}µs` : "N/A"));
-	stats.add("trails", (v) => (v ? `${(v / 1000).toFixed(1)}µs` : "N/A"));
-	stats.add("render", (v) => (v ? `${(v / 1000).toFixed(1)}µs` : "N/A"));
-
-	renderer.onRender(() => {
-		stats.update("js", renderer.loop.jsTime);
-		stats.update("fps", renderer.loop.trueDeltaTime);
-		stats.update("agents", renderer.perfTimes.get("agents"));
-		stats.update("trails", renderer.perfTimes.get("trails"));
-		stats.update("render", renderer.perfTimes.get("render"));
-	});
-
-	await renderer.initialize();
+	// await renderer.initialize();
 </script>

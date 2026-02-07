@@ -1,0 +1,25 @@
+.render-controls {
+    font-family: monospace;
+    padding: 3px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.controls-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.controls-buttons button {
+    font-family: monospace;
+    padding: .2rem .4rem;
+    border-radius: 4px;
+}
+
+.controls-info .info-item {
+    text-align: right;
+    padding: 0 3px;
+    font-size: 0.8rem;
+}

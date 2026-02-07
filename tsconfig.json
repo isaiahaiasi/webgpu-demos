@@ -1,9 +1,7 @@
 {
   "extends": "astro/tsconfigs/base",
-  // "compilerOptions": {
-  //   "typeRoots": [
-  //     "./node_modules/@webgpu/types",
-  //     "./node_modules/@types"
-  //   ]
-  // }
+  "compilerOptions": {
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js"
+  }
 }
