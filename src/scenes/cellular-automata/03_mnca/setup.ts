@@ -1,5 +1,3 @@
-import { initRenderMediaControls } from "../../../components/RenderMediaControls/initRenderMediaControls";
-import { PauseHandler } from "../../../utils/PauseHandler";
 import { MultiLifeGui } from "./MultiNeighborGui";
 import { MultiLifeRenderer } from "./MultiNeighborRenderer";
 
@@ -18,9 +16,8 @@ export async function main(
 
 	const renderer = new MultiLifeRenderer(canvas);
 	new MultiLifeGui(renderer, guiContainerId, 'multi-life');
-	new PauseHandler(canvas).init(renderer);
-	initRenderMediaControls(renderer);
-	
+	// new PauseHandler(canvas).init(renderer);
+	// initRenderMediaControls(renderer);
 
 	try {
 		await renderer.initialize();

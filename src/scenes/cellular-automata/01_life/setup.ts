@@ -1,7 +1,6 @@
 import { LifeGui } from "./LifeGui";
 import { LifeRenderer } from "./LifeRenderer";
 import type { BaseGui } from "../../../utils/BaseGui";
-import { PauseHandler } from "../../../utils/PauseHandler";
 import { presets, type PresetName } from "./presets";
 
 
@@ -39,7 +38,7 @@ export class RendererHandler {
 
 		this.renderer = new LifeRenderer(this.canvas, "life");
 		this.gui = new LifeGui(this.renderer, guiContainerId);
-		new PauseHandler(this.canvas).init(this.renderer);
+		// new PauseHandler(this.canvas).init(this.renderer);
 		// initRenderMediaControls(this.renderer);
 
 		this.init('conway');
