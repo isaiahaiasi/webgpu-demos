@@ -9,14 +9,6 @@ import Layout from "../../../layouts/Layout.astro";
 			<h1>Cellular Automata</h1>
 			<div class="subheading">Conway's "Game of Life" and other simple celllular automata</div>
 		</header>
-		<div id="wgpu-errors"></div>
-		<div id="life-presets">
-			<button data-preset="conway">Conway</button>
-			<button data-preset="maze">Maze</button>
-			<button data-preset="anneal">Anneal</button>
-			<button data-preset="inkspot">Inkspot</button>
-			<button data-preset="morley">Morley</button>
-		</div>
 		<LifeScene client:only="solid-js"/>
 	</main>
 </Layout>

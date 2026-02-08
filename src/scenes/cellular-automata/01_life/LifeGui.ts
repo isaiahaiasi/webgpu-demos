@@ -1,6 +1,7 @@
 import type GUI from "lil-gui";
 import { BaseGui } from "../../../utils/BaseGui";
 import type { LifeRenderer, LifeRendererSettings } from "./LifeRenderer";
+import { presets } from "./presets";
 
 export class LifeGui extends BaseGui {
 	declare renderer: LifeRenderer;
@@ -8,6 +9,8 @@ export class LifeGui extends BaseGui {
 	settings: LifeRendererSettings;
 	staticControls: GUI;
 	dynamicControls: GUI;
+
+	#currentPreset = "conway";
 
 	async init() {
 		if (this.options && this.settings !== this.renderer.settings) {
@@ -22,6 +25,14 @@ export class LifeGui extends BaseGui {
 	addGuiControls() {
 		// Controls that require a full reset
 		this.staticControls = this.options.addFolder("Static");
+
+		this.staticControls.add({preset: this.#currentPreset}, "preset")
+			.options(Object.keys(presets))
+			.onChange((v: keyof typeof presets) => {
+				this.#currentPreset = v;
+				this.renderer.initialize(presets[v]);
+			});
+
 		this.staticControls.add(this.renderer.settings, "workGroupSize", [4, 8, 16])
 			.name("WorkGroupSize")
 			.onFinishChange(() => {

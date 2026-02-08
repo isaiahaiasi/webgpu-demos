@@ -18,7 +18,6 @@ const StatsContext = createContext<StatsContextValue>();
 
 export function useStats() {
   const ctx = useContext(StatsContext);
-  console.log(ctx)
   if (!ctx) throw new Error("useStatsMode must be used within StatsContext");
   return ctx;
 }

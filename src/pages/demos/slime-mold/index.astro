@@ -1,5 +1,4 @@
 ---
-import RenderStats from "../../../components/RenderStats/RenderStats.astro";
 import { SlimeScene } from "../../../components/Scenes/SlimeScene";
 import Layout from "../../../layouts/Layout.astro";
 ---
@@ -10,22 +9,3 @@ import Layout from "../../../layouts/Layout.astro";
 		<SlimeScene client:only="solid-js"/>
 	</main>
 </Layout>
-
-<script>
-	// const stats = await getRenderStats();
-	// stats.add("fps", (v) => `${(1 / v).toFixed(1)}`);
-	// stats.add("js", (v) => `${v.toFixed(1)}s`);
-	// stats.add("agents", (v) => (v ? `${(v / 1000).toFixed(1)}µs` : "N/A"));
-	// stats.add("trails", (v) => (v ? `${(v / 1000).toFixed(1)}µs` : "N/A"));
-	// stats.add("render", (v) => (v ? `${(v / 1000).toFixed(1)}µs` : "N/A"));
-
-	// renderer.onRender(() => {
-	// 	stats.update("js", renderer.loop.jsTime);
-	// 	stats.update("fps", renderer.loop.trueDeltaTime);
-	// 	stats.update("agents", renderer.perfTimes.get("agents"));
-	// 	stats.update("trails", renderer.perfTimes.get("trails"));
-	// 	stats.update("render", renderer.perfTimes.get("render"));
-	// });
-
-	// await renderer.initialize();
-</script>
