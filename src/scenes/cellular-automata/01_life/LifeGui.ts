@@ -10,7 +10,7 @@ export class LifeGui extends BaseGui {
 	dynamicControls: GUI;
 
 	async init() {
-		if (this.gui && this.settings !== this.renderer.settings) {
+		if (this.options && this.settings !== this.renderer.settings) {
 			this.settings = this.renderer.settings;
 			this.dynamicControls.destroy();
 			this.staticControls.destroy();
@@ -21,7 +21,7 @@ export class LifeGui extends BaseGui {
 
 	addGuiControls() {
 		// Controls that require a full reset
-		this.staticControls = this.gui.addFolder("Static");
+		this.staticControls = this.options.addFolder("Static");
 		this.staticControls.add(this.renderer.settings, "workGroupSize", [4, 8, 16])
 			.name("WorkGroupSize")
 			.onFinishChange(() => {
@@ -45,7 +45,7 @@ export class LifeGui extends BaseGui {
 			});
 
 		// Controls that can update live
-		this.dynamicControls = this.gui.addFolder("Dynamic");
+		this.dynamicControls = this.options.addFolder("Dynamic");
 		this.dynamicControls.add(
 			this.renderer.loop.frametime,
 			"min", 0, 1, 0.01)

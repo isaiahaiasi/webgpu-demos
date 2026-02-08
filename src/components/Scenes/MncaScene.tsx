@@ -5,6 +5,7 @@ import { MultiLifeRenderer } from "../../scenes/cellular-automata/03_mnca/MultiN
 import { TapPause } from "../TapPause/TapPause";
 import { SceneGui } from "../SceneGui/SceneGui";
 import { MultiLifeGui } from "../../scenes/cellular-automata/03_mnca/MultiNeighborGui";
+import { DefaultStats } from "../SceneGui/DefaultStats";
 
 const MncaWrapper = createSceneWrapper(async (canvas) => {
   const renderer = new MultiLifeRenderer(canvas);
@@ -17,7 +18,9 @@ export const MncaScene: Component = () => {
     <MncaWrapper>
       <RenderMediaControls />
       <TapPause />
-      <SceneGui guiClass={MultiLifeGui} />
+      <SceneGui guiClass={MultiLifeGui}>
+        <DefaultStats />
+      </SceneGui>
     </MncaWrapper>
   );
 }

@@ -71,19 +71,19 @@ export abstract class BaseRenderer {
 	}
 
 	onRender(listener: () => void) {
-		this.loop.pubsub.add('render', listener);
+		return this.loop.pubsub.add('render', listener);
 	}
 
 	onStep(listener: () => void) {
-		this.loop.pubsub.add('step', listener);
+		return this.loop.pubsub.add('step', listener);
 	}
 
 	onStart(listener: () => void) {
-		this.loop.pubsub.add('start', listener);
+		return this.loop.pubsub.add('start', listener);
 	}
 
 	onStop(listener: () => void) {
-		this.loop.pubsub.add('stop', listener);
+		return this.loop.pubsub.add('stop', listener);
 	}
 
 	#fail(message: string) {

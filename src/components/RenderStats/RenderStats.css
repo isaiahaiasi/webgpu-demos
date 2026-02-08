@@ -1,0 +1,22 @@
+.render-stats-container {
+    position: absolute;
+    align-self:flex-start;
+    top: 0;
+    left: 0;
+    margin: 0;
+    padding: 0.5em;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+}
+
+.hidden {
+    display: none;
+}
+
+.render-stats-container pre {
+    margin: 0;
+    padding: 0;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+}

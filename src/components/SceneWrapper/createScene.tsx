@@ -29,6 +29,7 @@ export function useCanvas() {
  * Use this in each scene file to avoid boilerplate.
  * 
  * Example:
+ * ```
  * export const SlimeScene = createScene(
  *   async (canvas) => {
  *     const r = new SlimeRenderer(canvas, 'slime');
@@ -36,6 +37,7 @@ export function useCanvas() {
  *     return r;
  *   }
  * );
+ * ```
  */
 export function createSceneWrapper(
   createRenderer: (canvas: HTMLCanvasElement) => Promise<BaseRenderer>,

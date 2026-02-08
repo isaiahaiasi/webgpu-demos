@@ -6,7 +6,7 @@ export class LargerLifeGui extends BaseGui {
 	declare renderer: LargerLifeRenderer;
 
 	addGuiControls() {
-		const staticControls = this.gui.addFolder("Static");
+		const staticControls = this.options.addFolder("Static");
 		staticControls.add(this.renderer.settings, "workGroupSize", [4, 8, 16])
 			.name("WorkGroupSize")
 			.onFinishChange(() => {
@@ -29,7 +29,7 @@ export class LargerLifeGui extends BaseGui {
 				this.renderer.restart();
 			});
 
-		const ruleControls = this.gui.addFolder("Rules");
+		const ruleControls = this.options.addFolder("Rules");
 		ruleControls.add(this.renderer.settings.rules, "includeSelf")
 			.name("IncludeSelf")
 			.onChange(() => {

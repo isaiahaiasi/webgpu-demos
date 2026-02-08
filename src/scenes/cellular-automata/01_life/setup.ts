@@ -37,7 +37,7 @@ export class RendererHandler {
 		});
 
 		this.renderer = new LifeRenderer(this.canvas, "life");
-		this.gui = new LifeGui(this.renderer, guiContainerId);
+		// this.gui = new LifeGui(this.renderer, guiContainerId);
 		// new PauseHandler(this.canvas).init(this.renderer);
 		// initRenderMediaControls(this.renderer);
 

@@ -5,6 +5,7 @@ import { LargerLifeRenderer } from "../../scenes/cellular-automata/02_larger-lif
 import { TapPause } from "../TapPause/TapPause";
 import { SceneGui } from "../SceneGui/SceneGui";
 import { LargerLifeGui } from "../../scenes/cellular-automata/02_larger-life/LargerLifeGui";
+import { DefaultStats } from "../SceneGui/DefaultStats";
 
 const LargerLifeWrapper = createSceneWrapper(async (canvas) => {
   const renderer = new LargerLifeRenderer(canvas);
@@ -18,7 +19,9 @@ export const LargerLifeScene: Component = () => {
     <LargerLifeWrapper>
       <RenderMediaControls />
       <TapPause />
-      <SceneGui guiClass={LargerLifeGui} />
+      <SceneGui guiClass={LargerLifeGui}>
+        <DefaultStats/>
+      </SceneGui>
     </LargerLifeWrapper>
   );
 }

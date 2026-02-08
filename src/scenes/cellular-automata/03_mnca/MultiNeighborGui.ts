@@ -7,7 +7,7 @@ export class MultiLifeGui extends BaseGui {
 	declare renderer: MultiLifeRenderer;
 
 	addGuiControls() {
-		const staticControls = this.gui.addFolder("Static");
+		const staticControls = this.options.addFolder("Static");
 		staticControls.add(this.renderer.settings, "workGroupSize", [4, 8, 16])
 			.name("WorkGroupSize")
 			.onFinishChange(() => {
@@ -30,7 +30,7 @@ export class MultiLifeGui extends BaseGui {
 				this.renderer.restart();
 			});
 
-		const ruleControls = this.gui.addFolder("Rules");
+		const ruleControls = this.options.addFolder("Rules");
 
 		ruleControls.add({ preset: 0}, "preset", [0,1,2])
 			.name("Preset")
