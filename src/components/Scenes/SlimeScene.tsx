@@ -3,6 +3,8 @@ import { createSceneWrapper } from "../SceneWrapper/createScene";
 import { RenderMediaControls } from "../RenderMediaControls/RenderMediaControls";
 import { SlimeRenderer } from "../../scenes/slime-mold/SlimeRenderer";
 import { TapPause } from "../TapPause/TapPause";
+import { SceneGui } from "../SceneGui/SceneGui";
+import { SlimeGui } from "../../scenes/slime-mold/SlimeGui";
 
 const SlimeWrapper = createSceneWrapper(async (canvas) => {
   const renderer = new SlimeRenderer(canvas, "slime");
@@ -15,6 +17,7 @@ export const SlimeScene: Component = () => {
     <SlimeWrapper>
       <RenderMediaControls />
       <TapPause />
+      <SceneGui guiClass={SlimeGui} />
     </SlimeWrapper>
   );
 }

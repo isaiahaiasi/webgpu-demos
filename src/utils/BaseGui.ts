@@ -25,13 +25,13 @@ export abstract class BaseGui {
 
 	abstract addGuiControls(): void;
 
-	constructor(renderer: BaseRenderer, containerId?: string, label?: string) {
+	constructor(renderer: BaseRenderer, container?: HTMLElement, label?: string) {
 		this.label = label ?? 'gui';
 		this.renderer = renderer;
 
-		this.container = containerId
-			? document.getElementById(containerId)
-			: this.renderer.canvas.parentElement;
+		console.log({renderer, canvas: renderer.canvas})
+
+		this.container = container ?? this.renderer.canvas.parentElement;
 
 		this.renderer.onRender(() => { this.stats?.update() });
 		this.renderer.onStart(async () => { await this.init(); });
@@ -45,15 +45,20 @@ export abstract class BaseGui {
 		
 		if (!this.gui) {
 			await this.initGui();
-			this.container.appendChild(this.gui.domElement);
 			this.addDefaultGuiOptions();
 			this.addGuiControls();
+			this.container.appendChild(this.gui.domElement);
 		}
+	}
+
+	destroy() {
+		this.stats?.dom.remove();
+		this.gui?.destroy();
 	}
 
 	protected initStats() {
 		if (this.stats) {
-			this.stats.dom.remove();
+			return;
 		}
 
 		this.stats = new Stats();
@@ -63,11 +68,7 @@ export abstract class BaseGui {
 	}
 
 	protected async initGui() {
-		if (this.gui) {
-			this.gui.destroy();
-		}
-
-		this.gui = new GUI({ autoPlace: false });
+		this.gui = this.gui ?? new GUI({ autoPlace: false });
 		this.gui.domElement.id = `${this.label}-gui`;
 		this.gui.domElement.style.position = 'absolute';
 		this.gui.domElement.style.top = '0';

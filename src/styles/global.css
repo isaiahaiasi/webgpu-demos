@@ -114,14 +114,3 @@ a:visited {
 		outline: 1px solid red;
 	}
 }
-
-.gui-container {
-	position: relative;
-	width: 100%;
-	
-	@media (min-width: 1024px) {
-		order: -1;
-		width: calc(100% - 2rem);
-		margin: 0 1rem;
-	}
-}
