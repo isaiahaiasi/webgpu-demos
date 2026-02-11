@@ -7,7 +7,8 @@
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "test": "vitest"
   },
   "dependencies": {
     "@astrojs/solid-js": "^5.1.3",
@@ -21,6 +22,7 @@
     "@types/dat.gui": "^0.7.13",
     "@types/node": "^25.0.6",
     "@types/stats": "^0.16.30",
-    "@webgpu/types": "^0.1.68"
+    "@webgpu/types": "^0.1.68",
+    "vitest": "^4.0.18"
   }
 }
