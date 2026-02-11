@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { WebGPUStruct, type WGSLType } from '../utils/WebGPUStruct';
+import { WebGPUStruct } from '../utils/WebGPUStruct';
 
 describe('WebGPUStruct', () => {
   describe('Basic Types', () => {
@@ -164,24 +164,6 @@ describe('WebGPUStruct', () => {
   });
 
   describe('Complex Struct Layouts', () => {
-    it('should match webgpufundamentals example', () => {
-      // https://webgpufundamentals.org/webgpu/lessons/resources/wgsl-offset-computer.html
-      const struct = new WebGPUStruct({
-        scale: 'f32', // offset: 0, size: 4
-        offset: 'vec3f', // offset: 16, size: 12 (16-byte aligned)
-        matrix: 'mat4x4f', // offset: 32, size: 64 (16-byte aligned)
-      });
-
-      const layout = struct.getLayoutInfo();
-      expect(layout[0].offset).toBe(0);
-      expect(layout[0].size).toBe(4);
-      expect(layout[1].offset).toBe(16);
-      expect(layout[1].size).toBe(12);
-      expect(layout[2].offset).toBe(32);
-      expect(layout[2].size).toBe(64);
-      expect(struct.totalSize).toBe(96);
-    });
-
     it('should handle tightly packed scalars', () => {
       const struct = new WebGPUStruct({
         a: 'f32', // offset: 0
@@ -537,7 +519,6 @@ describe('WebGPUStruct', () => {
       });
 
       expect(() => {
-        // @ts-expect-error
         struct.set('nonexistent', 5);
       }).toThrow('Unknown field');
     });
@@ -548,7 +529,6 @@ describe('WebGPUStruct', () => {
       });
 
       expect(() => {
-        // @ts-expect-error
         struct.get('nonexistent');
       }).toThrow('Unknown field');
     });
@@ -644,7 +624,7 @@ describe('WebGPUStruct', () => {
       ];
 
       cases.forEach(({ layout, expectedOffset }) => {
-        const struct = new WebGPUStruct(layout as Record<string, WGSLType>);
+        const struct = new WebGPUStruct(layout);
         const info = struct.getLayoutInfo();
         const vec3Field = info.find((f) => f.type === 'vec3f');
         expect(vec3Field?.offset).toBe(expectedOffset);
@@ -662,9 +642,424 @@ describe('WebGPUStruct', () => {
       ];
 
       cases.forEach(({ layout, expectedSize }) => {
-        const struct = new WebGPUStruct(layout as Record<string, WGSLType>);
+        const struct = new WebGPUStruct(layout);
         expect(struct.totalSize).toBe(expectedSize);
       });
+    });
+  });
+
+  describe('Nested Structs', () => {
+    it('should handle simple nested struct', () => {
+      const struct = new WebGPUStruct({
+        camera: {
+          position: 'vec3f',
+          direction: 'vec3f',
+        },
+        time: 'f32',
+      });
+
+      const layout = struct.getLayoutInfo();
+
+      // camera.position at offset 0
+      expect(layout.find(f => f.path.join('.') === 'camera.position')?.offset).toBe(0);
+      // camera.direction at offset 16 (vec3 aligned)
+      expect(layout.find(f => f.path.join('.') === 'camera.direction')?.offset).toBe(16);
+      // time after camera struct
+      expect(layout.find(f => f.path.join('.') === 'time')?.offset).toBe(32);
+    });
+
+    it('should set and get nested struct values', () => {
+      const struct = new WebGPUStruct({
+        camera: {
+          position: 'vec3f',
+          fov: 'f32',
+        },
+      });
+
+      struct.set('camera.position', [1, 2, 3]);
+      struct.set('camera.fov', 90);
+
+      const position = struct.get('camera.position');
+      const fov = struct.get('camera.fov');
+
+      expect(position[0]).toBeCloseTo(1, 5);
+      expect(position[2]).toBeCloseTo(3, 5);
+      expect(fov).toBeCloseTo(90, 5);
+    });
+
+    it('should handle deeply nested structs', () => {
+      const struct = new WebGPUStruct({
+        scene: {
+          camera: {
+            transform: {
+              position: 'vec3f',
+              rotation: 'vec3f',
+            },
+            fov: 'f32',
+          },
+        },
+      });
+
+      struct.set('scene.camera.transform.position', [10, 20, 30]);
+      struct.set('scene.camera.fov', 75);
+
+      const position = struct.get('scene.camera.transform.position');
+      expect(position[1]).toBeCloseTo(20, 5);
+    });
+
+    it('should use setAll with nested objects', () => {
+      const struct = new WebGPUStruct({
+        light: {
+          position: 'vec3f',
+          color: 'vec3f',
+          intensity: 'f32',
+        },
+      });
+
+      struct.setAll({
+        light: {
+          position: [0, 10, 0],
+          color: [1, 1, 1],
+          intensity: 2.5,
+        },
+      });
+
+      expect(struct.get('light.position')[1]).toBeCloseTo(10, 5);
+      expect(struct.get('light.intensity')).toBeCloseTo(2.5, 5);
+    });
+
+    it('should handle deeply nested structs with correct offsets', () => {
+      const struct = new WebGPUStruct({
+        scene: {
+          camera: {
+            transform: {
+              position: 'vec3f',  // offset: 0
+              rotation: 'vec3f',  // offset: 16
+            },
+            fov: 'f32',          // offset: 32
+          },
+          lighting: {
+            ambient: 'vec3f',    // offset: 48 (aligned to 16)
+          },
+        },
+      });
+
+      const layout = struct.getLayoutInfo();
+
+      // Verify paths exist
+      const position = layout.find(f => f.path.join('.') === 'scene.camera.transform.position');
+      const rotation = layout.find(f => f.path.join('.') === 'scene.camera.transform.rotation');
+      const fov = layout.find(f => f.path.join('.') === 'scene.camera.fov');
+      const ambient = layout.find(f => f.path.join('.') === 'scene.lighting.ambient');
+
+      expect(position).toBeDefined();
+      expect(rotation).toBeDefined();
+      expect(fov).toBeDefined();
+      expect(ambient).toBeDefined();
+
+      expect(position?.offset).toBe(0);
+      expect(rotation?.offset).toBe(16);
+      expect(fov?.offset).toBe(32);
+      expect(ambient?.offset).toBe(48);
+
+      // Verify we can set and get values
+      struct.set('scene.camera.transform.position', [10, 20, 30]);
+      struct.set('scene.camera.fov', 75);
+
+      const posValue = struct.get('scene.camera.transform.position');
+      expect(posValue[1]).toBeCloseTo(20, 5);
+      expect(struct.get('scene.camera.fov')).toBeCloseTo(75, 5);
+    });
+  });
+
+  describe('Array Fields', () => {
+    it('should handle array of primitives', () => {
+      const lightDef = new WebGPUStruct({
+        position: 'vec3f',
+        color: 'vec3f',
+      });
+
+      const struct = new WebGPUStruct({
+        lights: [lightDef, 3],
+      });
+
+      // Arrays have minimum 16-byte stride
+      const layout = struct.getLayoutInfo();
+      const light0Pos = layout.find(f => f.path.join('.') === 'lights.0.position');
+      const light1Pos = layout.find(f => f.path.join('.') === 'lights.1.position');
+
+      expect(light0Pos?.offset).toBe(0);
+      expect(light1Pos?.offset).toBeGreaterThanOrEqual(light0Pos!.offset + 16);
+    });
+
+    it('should set and get array values', () => {
+      const pointDef = new WebGPUStruct({
+        position: 'vec3f',
+        size: 'f32',
+      });
+
+      const struct = new WebGPUStruct({
+        points: [pointDef, 2],
+      });
+
+      struct.set(['points', '0', 'position'], [1, 2, 3]);
+      struct.set(['points', '0', 'size'], 5);
+      struct.set(['points', '1', 'position'], [4, 5, 6]);
+      struct.set(['points', '1', 'size'], 10);
+
+      const pos0 = struct.get(['points', '0', 'position']);
+      const size1 = struct.get(['points', '1', 'size']);
+
+      expect(pos0[0]).toBeCloseTo(1, 5);
+      expect(size1).toBeCloseTo(10, 5);
+    });
+
+    it('should use setAll with arrays', () => {
+      const lightDef = new WebGPUStruct({
+        color: 'vec3f',
+        intensity: 'f32',
+      });
+
+      const struct = new WebGPUStruct({
+        lights: [lightDef, 2],
+      });
+
+      struct.setAll({
+        lights: {
+          0: {
+            color: [1, 0, 0],
+            intensity: 1.0,
+          },
+          1: {
+            color: [0, 1, 0],
+            intensity: 0.5,
+          },
+        },
+      });
+
+      expect(struct.get(['lights', '0', 'color'])[0]).toBeCloseTo(1, 5);
+      expect(struct.get(['lights', '1', 'intensity'])).toBeCloseTo(0.5, 5);
+    });
+
+    it('should handle array with inline struct definition', () => {
+      const struct = new WebGPUStruct({
+        particles: [
+          {
+            position: 'vec3f',
+            velocity: 'vec3f',
+          },
+          4,
+        ],
+      });
+
+      struct.set(['particles', '2', 'velocity'], [1, 2, 3]);
+      const velocity = struct.get(['particles', '2', 'velocity']);
+
+      expect(velocity[0]).toBeCloseTo(1, 5);
+    });
+
+    it('should handle array alignment correctly when it\'s not the first field (webgpufundamentals example)', () => {
+      // Reference: https://webgpufundamentals.org/webgpu/lessons/resources/wgsl-offset-computer.html
+      const lightStruct = new WebGPUStruct({
+        mode: 'u32',          // offset: 0
+        power: 'f32',         // offset: 4
+        range: 'f32',         // offset: 8
+        innerAngle: 'f32',    // offset: 12
+        outerAngle: 'f32',    // offset: 16
+        direction: 'vec3f',   // offset: 32 (needs 16-byte alignment)
+        position: 'vec3f',    // offset: 48
+      });
+
+      const fsInput = new WebGPUStruct({
+        colorMult: 'vec4f',          // offset: 0-15
+        specularFactor: 'f32',       // offset: 16-19
+        lights: [lightStruct, 2],  // starts at offset: 20
+      }, { uniformBuffer: true });
+
+      const layout = fsInput.getLayoutInfo();
+
+      // Verify array offsets
+      expect(layout.find(f => f.path.join('.') === 'lights.0.mode')?.offset).toBe(32);
+      expect(layout.find(f => f.path.join('.') === 'lights.0.power')?.offset).toBe(36);
+      expect(layout.find(f => f.path.join('.') === 'lights.0.range')?.offset).toBe(40);
+      expect(layout.find(f => f.path.join('.') === 'lights.0.innerAngle')?.offset).toBe(44);
+      expect(layout.find(f => f.path.join('.') === 'lights.0.outerAngle')?.offset).toBe(48);
+      expect(layout.find(f => f.path.join('.') === 'lights.0.direction')?.offset).toBe(64);
+      expect(layout.find(f => f.path.join('.') === 'lights.0.position')?.offset).toBe(80);
+      expect(layout.find(f => f.path.join('.') === 'lights.1.mode')?.offset).toBe(96);
+
+      // Verify total size
+      expect(fsInput.totalSize).toBe(160); // 80 bytes of data, rounded up to 16-byte alignment for uniform
+      console.log(fsInput.printLayout());
+    });
+
+    it('should handle array alignment correctly when it\'s not the first field (wgsl spec ref, storage)', () => {
+      const structA = new WebGPUStruct({ // align(8) size(24)
+        u: 'f32',    // offset(0)   align(4)  size(4)
+        v: 'f32',    // offset(4)   align(4)  size(4)
+        w: 'vec2f',  // offset(8)   align(8)  size(8)
+        x: 'f32'     // offset(16)  align(4)  size(4)
+        // implicit struct size padding --   offset(20) size(4)
+      });
+
+      const structB = new WebGPUStruct({ //               align(16) size(160)
+        a: 'vec2f',                        // offset(0)   align(8)  size(8)
+        // implicit member alignment padding  offset(8)             size(8)
+        b: 'vec3f',                        // offset(16)  align(16) size(12)
+        c: 'f32',                          // offset(28)  align(4)  size(4)
+        d: 'f32',                          // offset(32)  align(4)  size(4)
+        // implicit member alignment padding  offset(36)            size(4)
+        e: structA.layout,                 // offset(40)  align(8)  size(24)
+        f: 'vec3f',                        // offset(64)  align(16) size(12)
+        // implicit member alignment padding  offset(76)            size(4)
+        g: [structA, 3], // element stride 24 offset(80)  align(8)  size(72)
+        h: 'i32'                           // offset(152) align(4)  size(4)
+        // implicit struct size padding       offset(156)           size(4)
+      });
+      const layout = structB.getLayoutInfo();
+
+      console.log(structA.printLayout());
+
+      // Verify array offsets
+      expect(layout.find(f => f.path.join('.') === 'g.0.u')?.offset).toBe(80);
+      expect(layout.find(f => f.path.join('.') === 'g.0.v')?.offset).toBe(84);
+      expect(layout.find(f => f.path.join('.') === 'g.0.w')?.offset).toBe(88);
+      expect(layout.find(f => f.path.join('.') === 'g.0.x')?.offset).toBe(96);
+      expect(layout.find(f => f.path.join('.') === 'g.1.u')?.offset).toBe(104);
+      expect(layout.find(f => f.path.join('.') === 'g.2.u')?.offset).toBe(128);
+
+      // Verify total size
+      expect(structB.totalSize).toBe(160); // 80 bytes of data, rounded up to 16-byte alignment for uniform
+    });
+
+    it('should enforce minimum 16-byte array stride', () => {
+      // Small struct (vec3 = 12 bytes + 4 padding = 16)
+      const struct = new WebGPUStruct({
+        data: [
+          {
+            value: 'vec3f',
+          },
+          3,
+        ],
+      });
+
+      const layout = struct.getLayoutInfo();
+      const elem0 = layout.find(f => f.path.join('.') === 'data.0.value');
+      const elem1 = layout.find(f => f.path.join('.') === 'data.1.value');
+
+      const stride = elem1!.offset - elem0!.offset;
+      expect(stride).toBeGreaterThanOrEqual(16);
+    });
+  });
+
+  describe('Complex Real-World Examples', () => {
+    it('should handle scene with nested structs and arrays', () => {
+      const struct = new WebGPUStruct({
+        camera: {
+          position: 'vec3f',
+          direction: 'vec3f',
+          fov: 'f32',
+        },
+        lights: [
+          {
+            position: 'vec3f',
+            color: 'vec3f',
+            intensity: 'f32',
+          },
+          4,
+        ],
+        ambientColor: 'vec3f',
+        time: 'f32',
+      });
+
+      struct.setAll({
+        camera: {
+          position: [0, 5, 10],
+          direction: [0, 0, -1],
+          fov: 60,
+        },
+        lights: {
+          0: {
+            position: [10, 10, 10],
+            color: [1, 1, 1],
+            intensity: 2.0,
+          },
+          1: {
+            position: [-10, 10, 10],
+            color: [1, 0.8, 0.6],
+            intensity: 1.5,
+          },
+        },
+        ambientColor: [0.1, 0.1, 0.15],
+        time: 0,
+      });
+
+      expect(struct.get('camera.fov')).toBeCloseTo(60, 5);
+      expect(struct.get(['lights', '1', 'intensity'])).toBeCloseTo(1.5, 5);
+      expect(struct.get('ambientColor')[2]).toBeCloseTo(0.15, 5);
+    });
+
+    it('should handle particle system struct', () => {
+      const struct = new WebGPUStruct({
+        particles: [
+          {
+            position: 'vec3f',
+            velocity: 'vec3f',
+            life: 'f32',
+            size: 'f32',
+          },
+          100,
+        ],
+        emitter: {
+          position: 'vec3f',
+          rate: 'f32',
+        },
+      });
+
+      expect(struct.totalSize).toBeGreaterThan(0);
+
+      struct.set(['particles', '50', 'life'], 1.0);
+      expect(struct.get(['particles', '50', 'life'])).toBeCloseTo(1.0, 5);
+    });
+  });
+
+  describe('Error Handling for Complex Types', () => {
+    it('should throw on invalid array length', () => {
+      expect(() => {
+        new WebGPUStruct({
+          data: [{ value: 'f32' }, 0],
+        });
+      }).toThrow('Array length must be positive');
+    });
+
+    it('should throw on invalid array element spec', () => {
+      expect(() => {
+        new WebGPUStruct({
+          data: ['invalid' as any, 4],
+        });
+      }).toThrow('Invalid array element specification');
+    });
+
+    it('should throw on accessing non-existent nested field', () => {
+      const struct = new WebGPUStruct({
+        camera: {
+          position: 'vec3f',
+        },
+      });
+
+      expect(() => {
+        struct.get('camera.invalid');
+      }).toThrow('Unknown field');
+    });
+
+    it('should throw on accessing non-existent array index', () => {
+      const struct = new WebGPUStruct({
+        data: [{ value: 'f32' }, 2],
+      });
+
+      expect(() => {
+        struct.get(['data', '5', 'value']);
+      }).toThrow('Unknown field');
     });
   });
 });

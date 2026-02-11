@@ -1,101 +1,94 @@
-/**
- * WebGPU Struct - manages struct data with proper alignment and padding
- * 
- * @example
- * ```ts
- * const myStruct = new WebGPUStruct({
- *   color: 'vec4f',
- *   intensity: 'f32',
- *   count: 'i32',
- *   position: 'vec3f',
- *   enabled: 'u32'
- * });
- * 
- * myStruct.set('color', [1, 0, 0, 1]);
- * myStruct.set('intensity', 0.5);
- * const buffer = myStruct.getArrayBuffer();
- * ```
- */
-
-export type WGSLType =
-  | 'f32' | 'i32' | 'u32'
-  | 'vec2f' | 'vec2i' | 'vec2u'
-  | 'vec3f' | 'vec3i' | 'vec3u'
-  | 'vec4f' | 'vec4i' | 'vec4u'
-  | 'mat2x2f' | 'mat3x3f' | 'mat4x4f';
-
-export type StructLayout = Record<string, WGSLType>;
-
-export type ScalarValue = number;
-export type VectorValue = number[] | Float32Array | Int32Array | Uint32Array;
-export type StructValue = ScalarValue | VectorValue;
+type StructLayout = {
+  [key: string]:
+  | string  // Primitive type like 'vec3f'
+  | StructLayout  // Nested struct
+  | [WebGPUStruct | StructLayout, number];  // Array
+};
 
 interface WebGPUStructOptions {
   uniformBuffer?: boolean;
 }
 
-interface TypeInfo {
-  byteSize: number;
-  alignment: number;
-  componentCount: number;
-}
-
 interface FieldInfo {
   name: string;
-  type: WGSLType;
+  type: string;
   offset: number;
   size: number;
   alignment: number;
   componentCount: number;
+  path: string[];  // For nested access like ['camera', 'position']
+  isArray?: boolean;
+  arrayLength?: number;
+  arrayStride?: number;
+  isStruct?: boolean;
+  structDef?: WebGPUStruct;
 }
 
-export interface LayoutInfo {
-  name: string;
-  type: WGSLType;
-  offset: number;
-  size: number;
-  alignment: number;
-}
 
-export class WebGPUStruct<T extends StructLayout = StructLayout> {
+/**
+ * Enhanced WebGPU Struct with nested structs and arrays
+ * 
+ * Usage:
+ * ```
+ * const lightStruct = new WebGPUStruct({
+ *   position: 'vec3f',
+ *   color: 'vec3f',
+ *   intensity: 'f32',
+ * });
+ * 
+ * const sceneStruct = new WebGPUStruct({
+ *   camera: {
+ *     position: 'vec3f',
+ *     direction: 'vec3f',
+ *   },
+ *   lights: ['array', lightStruct, 4], // array of 4 lights
+ *   ambientColor: 'vec3f',
+ * });
+ * ```
+ */
+export class WebGPUStruct {
   // Type information: [byteSize, alignment, componentCount]
-  private static readonly TYPE_INFO: Record<WGSLType, TypeInfo> = {
-    'f32': { byteSize: 4, alignment: 4, componentCount: 1 },
-    'i32': { byteSize: 4, alignment: 4, componentCount: 1 },
-    'u32': { byteSize: 4, alignment: 4, componentCount: 1 },
-    'vec2f': { byteSize: 8, alignment: 8, componentCount: 2 },
-    'vec2i': { byteSize: 8, alignment: 8, componentCount: 2 },
-    'vec2u': { byteSize: 8, alignment: 8, componentCount: 2 },
-    'vec3f': { byteSize: 12, alignment: 16, componentCount: 3 },  // 12 bytes, but 16-byte aligned
-    'vec3i': { byteSize: 12, alignment: 16, componentCount: 3 },
-    'vec3u': { byteSize: 12, alignment: 16, componentCount: 3 },
-    'vec4f': { byteSize: 16, alignment: 16, componentCount: 4 },
-    'vec4i': { byteSize: 16, alignment: 16, componentCount: 4 },
-    'vec4u': { byteSize: 16, alignment: 16, componentCount: 4 },
-    'mat2x2f': { byteSize: 16, alignment: 8, componentCount: 4 },
-    'mat3x3f': { byteSize: 48, alignment: 16, componentCount: 9 },
-    'mat4x4f': { byteSize: 64, alignment: 16, componentCount: 16 },
+  static TYPES = {
+    'f32': [4, 4, 1],
+    'i32': [4, 4, 1],
+    'u32': [4, 4, 1],
+    'vec2f': [8, 8, 2],
+    'vec2i': [8, 8, 2],
+    'vec2u': [8, 8, 2],
+    'vec3f': [12, 16, 3],
+    'vec3i': [12, 16, 3],
+    'vec3u': [12, 16, 3],
+    'vec4f': [16, 16, 4],
+    'vec4i': [16, 16, 4],
+    'vec4u': [16, 16, 4],
+    'mat2x2f': [16, 8, 4],
+    'mat3x3f': [48, 16, 9],
+    'mat4x4f': [64, 16, 16],
   };
 
-  private readonly layout: T;
-  private readonly fields: FieldInfo[] = [];
-  private readonly fieldMap = new Map<string, FieldInfo>();
-  private readonly uniformBuffer: boolean;
-  public readonly totalSize: number;
+  layout: StructLayout;
+  fields: FieldInfo[];
+  fieldMap: Map<string, FieldInfo>;
+  totalSize: number;
+  uniformBuffer: boolean;
+  buffer: ArrayBuffer;
+  view: DataView;
+  float32View: Float32Array;
+  int32View: Int32Array;
+  uint32View: Uint32Array;
 
-  // Single ArrayBuffer and DataView for the entire struct
-  private readonly buffer: ArrayBuffer;
-  private readonly view: DataView;
+  constructor(layout: StructLayout, options: WebGPUStructOptions = {}) {
+    if (Object.keys(layout).length === 0) {
+      throw new Error('Struct layout cannot be empty');
+    }
 
-  // Typed array views for efficient bulk updates
-  private readonly float32View: Float32Array;
-  private readonly int32View: Int32Array;
-  private readonly uint32View: Uint32Array;
-
-  constructor(layout: T, options: WebGPUStructOptions = {}) {
     this.layout = layout;
+    this.fields = [];
+    this.fieldMap = new Map();
+    this.totalSize = 0;
     this.uniformBuffer = options.uniformBuffer ?? false;
-    this.totalSize = this._computeLayout();
+
+    this._computeLayout();
 
     // Single ArrayBuffer and DataView for the entire struct
     this.buffer = new ArrayBuffer(this.totalSize);
@@ -108,60 +101,248 @@ export class WebGPUStruct<T extends StructLayout = StructLayout> {
   }
 
   /**
-   * Compute the memory layout with proper alignment and padding
+   * Compute the memory layout with proper alignment, padding, arrays, and nested structs
    */
-_computeLayout() {
-  if (Object.keys(this.layout).length === 0) {
-    throw new Error('Struct layout cannot be empty');
+  private _computeLayout() {
+    let offset = 0;
+    let maxAlignment = 0;
+
+    for (const [name, typeSpec] of Object.entries(this.layout)) {
+      const result = this._processField(name, typeSpec, offset, [name]);
+
+      maxAlignment = Math.max(maxAlignment, result.alignment);
+      offset = result.nextOffset;
+
+      // Store all fields (including nested ones)
+      this.fields.push(...result.fields);
+      result.fields.forEach(field => {
+        const key = field.path.join('.');
+        this.fieldMap.set(key, field);
+      });
+    }
+
+    // Align total size to the largest alignment requirement
+    // For uniform buffers, minimum alignment is 16 bytes
+    const structAlignment = this.uniformBuffer
+      ? Math.max(maxAlignment, 16)
+      : maxAlignment;
+    const finalPadding = (structAlignment - (offset % structAlignment)) % structAlignment;
+    this.totalSize = offset + finalPadding;
   }
 
-  let offset = 0;
-  let maxAlignment = 0;
+  /**
+   * Process a single field (primitive, array, or nested struct)
+   */
+  private _processField(
+    name: string,
+    typeSpec: string | StructLayout | [WebGPUStruct | StructLayout, number],
+    offset: number,
+    path: string[]
+  ): { fields: FieldInfo[]; alignment: number; nextOffset: number } {
+    // Handle arrays: ['array', type, length]
+    if (Array.isArray(typeSpec)) {
+      return this._processArray(name, typeSpec, offset, path);
+    }
 
-  for (const [name, type] of Object.entries(this.layout)) {
-    const typeInfo = WebGPUStruct.TYPE_INFO[type];
+    // Handle nested structs: { field: type, ... }
+    if (typeof typeSpec === 'object' && typeSpec !== null) {
+      // (Explicit cast because TypeScript isn't narrowing Array exclusion properly here)
+      return this._processNestedStruct(typeSpec as StructLayout, offset, path);
+    }
+
+    // Handle primitive types: 'vec3f', 'f32', etc.
+    if (typeof typeSpec === 'string') {
+      return this._processPrimitive(name, typeSpec, offset, path);
+    }
+
+    throw new Error(`Invalid type specification for field: ${name}`);
+  }
+
+  /**
+   * Process a primitive type field
+   */
+  private _processPrimitive(
+    name: string,
+    type: string,
+    offset: number,
+    path: string[]
+  ): { fields: FieldInfo[]; alignment: number; nextOffset: number } {
+    const typeInfo = WebGPUStruct.TYPES[type as keyof typeof WebGPUStruct.TYPES];
     if (!typeInfo) {
       throw new Error(`Unknown type: ${type}`);
     }
 
-    const {byteSize, alignment, componentCount} = typeInfo;
-
-    // Track the maximum alignment requirement
-    maxAlignment = Math.max(maxAlignment, alignment);
+    const [size, alignment, componentCount] = typeInfo;
 
     // Apply alignment padding
     const alignmentPadding = (alignment - (offset % alignment)) % alignment;
     offset += alignmentPadding;
 
-    const field = {
+    const field: FieldInfo = {
       name,
       type,
       offset,
-      size: byteSize,
+      size,
       alignment,
-      componentCount
+      componentCount,
+      path,
     };
 
-    this.fields.push(field);
-    this.fieldMap.set(name, field);
-
-    offset += byteSize;
+    return {
+      fields: [field],
+      alignment,
+      nextOffset: offset + size,
+    };
   }
 
-  // Align total size to the largest alignment requirement
-  // For uniform buffers, minimum alignment is 16 bytes
-  const structAlignment = this.uniformBuffer ? Math.max(maxAlignment, 16) : maxAlignment;
-  const finalPadding = (structAlignment - (offset % structAlignment)) % structAlignment;
-  return offset + finalPadding;
-}
+  /**
+ * Process a nested struct field
+ */
+  private _processNestedStruct(
+    structLayout: StructLayout,
+    offset: number,
+    path: string[]
+  ): { fields: FieldInfo[]; alignment: number; nextOffset: number } {
+    let nestedOffset = 0;
+    let maxAlignment = 0;
+    const fields: FieldInfo[] = [];
+
+    // Process each field in the nested struct
+    for (const [fieldName, fieldSpec] of Object.entries(structLayout)) {
+      const result = this._processField(
+        fieldName,
+        fieldSpec,
+        nestedOffset,
+        [...path, fieldName]  // Pass down the accumulated path
+      );
+
+      maxAlignment = Math.max(maxAlignment, result.alignment);
+      nestedOffset = result.nextOffset;
+      fields.push(...result.fields);
+    }
+
+    // Align offset to the struct's alignment requirement
+    const structAlignment = maxAlignment;
+    const alignmentPadding = (structAlignment - (offset % structAlignment)) % structAlignment;
+    offset += alignmentPadding;
+
+    const baseOffset = offset;
+
+    // Adjust all field offsets to be relative to the parent struct
+    const adjustedFields = fields.map(field => ({
+      ...field,
+      offset: baseOffset + field.offset,
+    }));
+
+    // Calculate the total size of this nested struct
+    const structSize = nestedOffset;
+    // Align the struct size to its alignment
+    const sizePadding = (structAlignment - (structSize % structAlignment)) % structAlignment;
+    const totalStructSize = structSize + sizePadding;
+
+    return {
+      fields: adjustedFields,
+      alignment: structAlignment,
+      nextOffset: baseOffset + totalStructSize,
+    };
+  }
 
   /**
-   * Set a field value
+ * Process an array field
+ * Arrays in WGSL have specific alignment rules:
+ * - Array stride must be aligned to the element's alignment (minimum 16 bytes for struct arrays)
+ * - Array itself aligns to the element's alignment
+ * - First element has no extra padding beyond element alignment
+ */
+  private _processArray(
+    name: string,
+    arraySpec: [WebGPUStruct | StructLayout, number],
+    offset: number,
+    path: string[]
+  ): { fields: FieldInfo[]; alignment: number; nextOffset: number } {
+    const [elementSpec, length] = arraySpec;
+
+    if (length <= 0) {
+      throw new Error(`Array length must be positive: ${name}`);
+    }
+
+    let elementStruct: WebGPUStruct;
+    let elementSize: number;
+    let elementAlignment: number;
+
+    // Determine element type
+    if (elementSpec instanceof WebGPUStruct) {
+      elementStruct = elementSpec;
+      elementSize = elementStruct.totalSize;
+      elementAlignment = Math.max(...elementStruct.fields.map(f => f.alignment));
+    } else if (typeof elementSpec === 'object') {
+      // Nested struct definition - create without uniform buffer rules
+      elementStruct = new WebGPUStruct(elementSpec, { uniformBuffer: false });
+      elementSize = elementStruct.totalSize;
+      elementAlignment = Math.max(...elementStruct.fields.map(f => f.alignment));
+    } else {
+      throw new Error(`Invalid array element specification for: ${name}`);
+    }
+
+    // Array alignment is the element's alignment
+    const arrayAlignment = elementAlignment;
+
+    // Align the array start to element alignment (NOT 16!)
+    const alignmentPadding = (arrayAlignment - (offset % arrayAlignment)) % arrayAlignment;
+    offset += alignmentPadding;
+
+    // Calculate array stride
+    // For struct elements: stride must be a multiple of the element's alignment, minimum 16
+    // For primitive elements: stride equals element size (aligned to element alignment)
+    let arrayStride: number;
+
+    // Structs in arrays need minimum 16-byte stride
+    arrayStride = Math.max(elementSize, 16);
+    // Align stride to element alignment
+    arrayStride = Math.ceil(arrayStride / arrayAlignment) * arrayAlignment;
+
+    const fields: FieldInfo[] = [];
+    const baseOffset = offset;
+
+    // Create fields for each array element
+    for (let i = 0; i < length; i++) {
+      const elementOffset = baseOffset + (i * arrayStride);
+
+      // Add fields for this array element
+      elementStruct.fields.forEach(elementField => {
+        fields.push({
+          ...elementField,
+          name: `${name}[${i}].${elementField.name}`,
+          offset: elementOffset + elementField.offset,
+          path: [...path, `${i}`, elementField.name],
+          isArray: true,
+          arrayLength: length,
+          arrayStride: arrayStride,
+        });
+      });
+    }
+
+    const totalArraySize = arrayStride * length;
+
+    return {
+      fields,
+      alignment: arrayAlignment, // Return element alignment, not 16!
+      nextOffset: baseOffset + totalArraySize,
+    };
+  }
+
+  /**
+   * Set a field value (supports nested access via dot notation or array)
+   * @param path - Field path like 'camera.position' or ['lights', 0, 'color']
+   * @param value - Value to set
    */
-  set<K extends keyof T & string>(name: K, value: StructValue): this {
-    const field = this.fieldMap.get(name);
+  set(path: string | string[], value: number | number[] | Float32Array | Int32Array | Uint32Array): this {
+    const pathArray = typeof path === 'string' ? path.split('.') : path;
+    const key = pathArray.join('.');
+
+    const field = this.fieldMap.get(key);
     if (!field) {
-      throw new Error(`Unknown field: ${name}`);
+      throw new Error(`Unknown field: ${key}`);
     }
 
     const isFloat = field.type.includes('f');
@@ -170,17 +351,24 @@ _computeLayout() {
 
     if (field.componentCount === 1) {
       // Scalar value
-      const scalar = value as number;
+      if (typeof value !== 'number') {
+        throw new Error(`Expected scalar value for ${key}`);
+      }
+
       if (isFloat) {
-        this.view.setFloat32(field.offset, scalar, true);
+        this.view.setFloat32(field.offset, value, true);
       } else if (isInt) {
-        this.view.setInt32(field.offset, scalar, true);
+        this.view.setInt32(field.offset, value, true);
       } else if (isUint) {
-        this.view.setUint32(field.offset, scalar, true);
+        this.view.setUint32(field.offset, value, true);
       }
     } else {
       // Vector or matrix
-      const values = Array.isArray(value) ? value : Array.from(value as ArrayLike<number>);
+      if (typeof value === 'number') {
+        throw new Error(`Expected vector/matrix value for ${key}, received "${value}"`);
+      }
+
+      const values = Array.isArray(value) ? value : Array.from(value);
 
       if (values.length !== field.componentCount) {
         throw new Error(
@@ -203,12 +391,16 @@ _computeLayout() {
   }
 
   /**
-   * Get a field value
+   * Get a field value (supports nested access)
+   * @param path - Field path like 'camera.position' or ['lights', 0, 'color']
    */
-  get<K extends keyof T & string>(name: K): number | Float32Array | Int32Array | Uint32Array {
-    const field = this.fieldMap.get(name);
+  get(path: string | string[]): number | Float32Array | Int32Array | Uint32Array {
+    const pathArray = typeof path === 'string' ? path.split('.') : path;
+    const key = pathArray.join('.');
+
+    const field = this.fieldMap.get(key);
     if (!field) {
-      throw new Error(`Unknown field: ${name}`);
+      throw new Error(`Unknown field: ${key}`);
     }
 
     const isFloat = field.type.includes('f');
@@ -247,19 +439,41 @@ _computeLayout() {
       }
     }
 
-    throw new Error(`Unable to get value for field: ${name}`);
+    throw new Error(`Unable to get value for field: ${key}`);
   }
 
   /**
-   * Set multiple fields at once
+   * Set multiple fields at once (supports nested objects)
    */
-  setAll(values: Partial<Record<keyof T, StructValue>>): this {
-    for (const [name, value] of Object.entries(values)) {
-      if (value !== undefined) {
-        this.set(name as keyof T & string, value);
+  setAll(values: any): this {
+    this._setAllRecursive(values, []);
+    return this;
+  }
+
+  private _setAllRecursive(values: any, path: string[]) {
+    for (const [key, value] of Object.entries(values)) {
+      const currentPath = [...path, key];
+
+      if (typeof value === 'object' && !Array.isArray(value) && !(value instanceof Float32Array) && !(value instanceof Int32Array) && !(value instanceof Uint32Array)) {
+        // Check if this is an array index pattern
+        if (/^\d+$/.test(key)) {
+          // This is an array index, continue recursing
+          this._setAllRecursive(value, currentPath);
+        } else {
+          // Check if this path exists as a field (non-nested)
+          const pathKey = currentPath.join('.');
+          if (this.fieldMap.has(pathKey)) {
+            this.set(currentPath, value as number | number[] | Float32Array | Int32Array | Uint32Array);
+          } else {
+            // Continue recursing for nested objects
+            this._setAllRecursive(value, currentPath);
+          }
+        }
+      } else {
+        // Leaf value, set it
+        this.set(currentPath, value as number | number[] | Float32Array | Int32Array | Uint32Array);
       }
     }
-    return this;
   }
 
   /**
@@ -277,9 +491,9 @@ _computeLayout() {
   }
 
   /**
-   * Copy data to a target buffer (e.g., GPUBuffer via writeBuffer)
+   * Copy data to a target buffer
    */
-  copyTo(target: Uint8Array | ArrayBuffer, targetOffset = 0): void {
+  copyTo(target: Uint8Array | ArrayBuffer, targetOffset = 0) {
     const source = new Uint8Array(this.buffer);
     if (target instanceof ArrayBuffer) {
       new Uint8Array(target).set(source, targetOffset);
@@ -291,51 +505,48 @@ _computeLayout() {
   /**
    * Get layout information for debugging
    */
-  getLayoutInfo(): LayoutInfo[] {
-    return this.fields.map(f => ({
-      name: f.name,
-      type: f.type,
-      offset: f.offset,
-      size: f.size,
-      alignment: f.alignment
-    }));
+  getLayoutInfo(): FieldInfo[] {
+    return this.fields.map(f => ({ ...f }));
   }
 
   /**
    * Print layout for debugging
    */
-  printLayout(): void {
+  printLayout() {
     console.log(`Struct Layout (total size: ${this.totalSize} bytes):`);
-    console.log('─'.repeat(60));
+    console.log('─'.repeat(80));
 
-    for (let i = 0; i < this.fields.length; i++) {
-      const field = this.fields[i];
-      const prevField = this.fields[i - 1];
+    let lastOffset = 0;
+    let lastSize = 0;
 
-      if (i > 0 && prevField) {
-        const padding = field.offset - (prevField.offset + prevField.size);
-        if (padding > 0) {
-          console.log(`  [padding: ${padding} bytes]`);
-        }
+    for (const field of this.fields) {
+      const padding = field.offset - lastOffset - lastSize;
+
+      if (padding > 0) {
+        console.log(`  [padding: ${padding} bytes]`);
       }
+
+      const indent = '  ' + '  '.repeat(field.path.length - 1);
+      const fieldName = field.path.join('.');
+      const arrayInfo = field.isArray ? ` (stride: ${field.arrayStride})` : '';
 
       console.log(
-        `  ${field.name.padEnd(15)} ${field.type.padEnd(10)} ` +
-        `offset: ${field.offset.toString().padStart(3)}, ` +
-        `size: ${field.size.toString().padStart(2)}, ` +
-        `align: ${field.alignment}`
+        `${indent}${fieldName.padEnd(30)} ${field.type.padEnd(10)} ` +
+        `offset: ${field.offset.toString().padStart(4)}, ` +
+        `size: ${field.size.toString().padStart(2)}` +
+        arrayInfo
       );
+
+      lastOffset = field.offset;
+      lastSize = field.size;
     }
 
-    const lastField = this.fields[this.fields.length - 1];
-    if (lastField) {
-      const finalPadding = this.totalSize - (lastField.offset + lastField.size);
-      if (finalPadding > 0) {
-        console.log(`  [final padding: ${finalPadding} bytes]`);
-      }
+    const finalPadding = this.totalSize - lastOffset - lastSize;
+    if (finalPadding > 0) {
+      console.log(`  [final padding: ${finalPadding} bytes]`);
     }
 
-    console.log('─'.repeat(60));
+    console.log('─'.repeat(80));
   }
 
   /**
@@ -349,8 +560,8 @@ _computeLayout() {
   /**
    * Clone the struct with the same layout
    */
-  clone(): WebGPUStruct<T> {
-    const cloned = new WebGPUStruct(this.layout);
+  clone(): WebGPUStruct {
+    const cloned = new WebGPUStruct(this.layout, { uniformBuffer: this.uniformBuffer });
     cloned.float32View.set(this.float32View);
     return cloned;
   }
