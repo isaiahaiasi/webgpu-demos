@@ -312,7 +312,7 @@ export class WebGPUStruct {
       elementStruct.fields.forEach(elementField => {
         fields.push({
           ...elementField,
-          name: `${name}[${i}].${elementField.name}`,
+          name: `${name}.${i}.${elementField.name}`,
           offset: elementOffset + elementField.offset,
           path: [...path, `${i}`, elementField.name],
           isArray: true,
@@ -454,7 +454,9 @@ export class WebGPUStruct {
     for (const [key, value] of Object.entries(values)) {
       const currentPath = [...path, key];
 
-      if (typeof value === 'object' && !Array.isArray(value) && !(value instanceof Float32Array) && !(value instanceof Int32Array) && !(value instanceof Uint32Array)) {
+      const isNumericArray = Array.isArray(value) && typeof value[0] === 'number';
+
+      if (typeof value === 'object' && !isNumericArray && !(value instanceof Float32Array) && !(value instanceof Int32Array) && !(value instanceof Uint32Array)) {
         // Check if this is an array index pattern
         if (/^\d+$/.test(key)) {
           // This is an array index, continue recursing

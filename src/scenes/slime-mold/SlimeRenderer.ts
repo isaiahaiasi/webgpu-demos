@@ -4,6 +4,7 @@ import { SimpleBufferAsset, StructBufferAsset } from "../../utils/BufferAsset";
 import renderShaderCode from "./shaders/render.wgsl?raw";
 import computeShaderCode from "./shaders/compute.wgsl?raw";
 import AgentGenerator, { type DirMode, type PosMode } from "./AgentGenerator";
+import { WebGPUStruct } from "../../utils/WebGPUStruct";
 
 
 const TEXTURE_OPTIONS: GPUSamplerDescriptor = {
@@ -51,24 +52,9 @@ export class SlimeRenderer extends BaseRenderer {
 	agentsBuffer: SimpleBufferAsset;
 	sceneInfoBuffer: SimpleBufferAsset;
 	bgColorBuffer: SimpleBufferAsset;
-	simOptionsBuffer: StructBufferAsset;
 
-	// Avoid allocating new arrays every frame.
-	// TODO: Rework BufferAsset classes so we can actually use those arraybuffers
-	// we already created. These extra ones should be totally unnecessary!
-	private sceneInfoArray = new Float32Array(2);
-	private bgColorArray = new Float32Array(4);
-	private simOptionsData = {
-		agentCount: new Uint32Array(1),
-		diffuseSpeed: new Float32Array(1),
-		evaporateSpeed: new Float32Array(1),
-		evaporateWeight: new Float32Array(4),
-		moveSpeed: new Float32Array(1),
-		sensorAngle: new Float32Array(1),
-		sensorDst: new Float32Array(1),
-		sensorSize: new Uint32Array(1),
-		turnSpeed: new Float32Array(1),
-	};
+	simOptionsStruct: WebGPUStruct;
+	simOptionsBuffer: GPUBuffer;
 
 	// BindGroup Layouts
 	computeBindGroupLayout0: GPUBindGroupLayout;
@@ -105,7 +91,7 @@ export class SlimeRenderer extends BaseRenderer {
 		// I care more about the step-to-step behavior than execution timing.
 		deltaTime = Math.min(Math.max(deltaTime, 0.016), 0.067);
 
-		this.updateUniforms(deltaTime);
+		this.sceneInfoBuffer.set([performance.now(), deltaTime]);
 
 		const agentEncoder = this.device.createCommandEncoder({ label: `${this.label}::encoder::compute-agents` });
 
@@ -179,26 +165,21 @@ export class SlimeRenderer extends BaseRenderer {
 		return true;
 	}
 
-	private updateUniforms(deltaTime: number) {
-		this.sceneInfoArray[0] = deltaTime;
-		this.sceneInfoArray[1] = deltaTime;
-		this.sceneInfoBuffer.set(this.sceneInfoArray);
+	public updateUniforms() {
+		this.bgColorBuffer.set(this.settings.backgroundColor);
 
-		this.bgColorArray.set(this.settings.backgroundColor);
-		this.bgColorBuffer.set(this.bgColorArray);
+		this.simOptionsStruct.setAll({
+				diffuseSpeed: this.settings.diffuseSpeed,
+				evaporateSpeed: this.settings.evaporateSpeed,
+				evaporateWeight: [...this.settings.evaporateColor.map(c => 1 - c)], // invert color
+				moveSpeed: this.settings.moveSpeed,
+				agentCount: this.settings.agentCount,
+				sensorAngle: this.settings.sensorAngle,
+				sensorDst: this.settings.sensorDst,
+				turnSpeed: this.settings.turnSpeed,
+		});
 
-		this.simOptionsData.diffuseSpeed[0] = this.settings.diffuseSpeed;
-		this.simOptionsData.evaporateSpeed[0] = this.settings.evaporateSpeed;
-		this.simOptionsData.evaporateWeight.set(
-			[...this.settings.evaporateColor.map(c => 1 - c)] // invert color
-		);
-		this.simOptionsData.moveSpeed[0] = this.settings.moveSpeed;
-		this.simOptionsData.agentCount[0] = this.settings.agentCount;
-		this.simOptionsData.sensorAngle[0] = this.settings.sensorAngle;
-		this.simOptionsData.sensorDst[0] = this.settings.sensorDst;
-		this.simOptionsData.turnSpeed[0] = this.settings.turnSpeed;
-
-		this.simOptionsBuffer.set(this.simOptionsData);
+		this.device.queue.writeBuffer(this.simOptionsBuffer, 0, this.simOptionsStruct.getArrayBuffer());
 	}
 
 	protected async makePipeline() {
@@ -315,6 +296,7 @@ export class SlimeRenderer extends BaseRenderer {
 		this.#createTextures();
 		this.#createBuffers();
 		this.setupTimestamps(["agents", "trails", "render"]);
+		this.updateUniforms();
 		await this.#initAgents();
 	}
 
@@ -405,25 +387,22 @@ export class SlimeRenderer extends BaseRenderer {
 	}
 
 	#createBuffers() {
+		this.simOptionsStruct = new WebGPUStruct({
+			diffuseSpeed: 'f32',
+			evaporateSpeed: 'f32',
+			evaporateWeight: 'vec4f',
+			moveSpeed: 'f32',
+			agentCount: 'u32',
+			sensorAngle: 'f32',
+			sensorDst: 'f32',
+			turnSpeed: 'f32',
+		}, { uniformBuffer: true });
 
-		this.simOptionsBuffer = new StructBufferAsset(
-			this.device,
-			{
-				usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-				size: 80,
-			},
-			{
-				// MUST MATCH WGSL STRUCT!
-				diffuseSpeed: { offset: 0, length: 1, type: 'f32' },
-				evaporateSpeed: { offset: 4, length: 1, type: 'f32' },
-				evaporateWeight: { offset: 16, length: 4, type: 'f32' },
-				moveSpeed: { offset: 32, length: 1, type: 'f32' },
-				agentCount: { offset: 36, length: 1, type: 'u32' },
-				sensorAngle: { offset: 40, length: 1, type: 'f32' },
-				sensorDst: { offset: 44, length: 1, type: 'f32' },
-				turnSpeed: { offset: 48, length: 1, type: 'f32' },
-			}
-		);
+		this.simOptionsBuffer = this.device.createBuffer({
+			label: `${this.label}::uniform::sim-options`,
+			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+			size: this.simOptionsStruct.totalSize,
+		});
 
 		// Simple buffers (single Float32Array)
 		this.sceneInfoBuffer = new SimpleBufferAsset(
@@ -493,7 +472,7 @@ export class SlimeRenderer extends BaseRenderer {
 			layout: this.computeBindGroupLayout0,
 			entries: [
 				{ binding: 0, resource: { buffer: this.sceneInfoBuffer.buffer } },
-				{ binding: 1, resource: { buffer: this.simOptionsBuffer.buffer } },
+				{ binding: 1, resource: { buffer: this.simOptionsBuffer } },
 				{ binding: 2, resource: { buffer: this.agentsBuffer.buffer } },
 			],
 		});

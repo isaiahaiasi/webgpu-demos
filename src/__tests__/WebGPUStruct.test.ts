@@ -825,16 +825,16 @@ describe('WebGPUStruct', () => {
       });
 
       struct.setAll({
-        lights: {
-          0: {
+        lights: [
+          {
             color: [1, 0, 0],
             intensity: 1.0,
           },
-          1: {
+          {
             color: [0, 1, 0],
             intensity: 0.5,
           },
-        },
+        ]
       });
 
       expect(struct.get(['lights', '0', 'color'])[0]).toBeCloseTo(1, 5);

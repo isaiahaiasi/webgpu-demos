@@ -3,6 +3,7 @@ import renderShaderCode from "./shaders/render.wgsl?raw";
 
 import { BaseRenderer } from "../../../utils/BaseRenderer";
 import { StructBufferAsset } from "../../../utils/BufferAsset";
+import { WebGPUStruct } from "../../../utils/WebGPUStruct";
 
 /** 
  * TODO: implement other neighborhood types.
@@ -69,7 +70,8 @@ export class LargerLifeRenderer extends BaseRenderer {
 	currentBindGroupIndex: 1 | 0 = 0; // Ping Pong Buffer index
 
 	// Buffer/texture assets
-	rulesBuffer: StructBufferAsset;
+	rulesStruct: WebGPUStruct;
+	rulesBuffer: GPUBuffer;
 	colorBuffer: GPUBuffer;
 	cellTextures: GPUTexture[];
 
@@ -201,19 +203,18 @@ const SCALE = vec2f(${scaleX}f, ${scaleY}f);
 			);
 		}
 
-		this.rulesBuffer = new StructBufferAsset(
-			this.device,
-			{
-				usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-				size: 80,
-			},
-			{
-				includeSelf: { offset: 0, length: 1, type: 'i32' },
-				neighborDistance: { offset: 4, length: 1, type: 'i32' },
-				birthRange: { offset: 8, length: 2, type: 'f32' },
-				survivalRange: { offset: 16, length: 2, type: 'f32' },
-			},
-		);
+		this.rulesStruct = new WebGPUStruct({
+			includeSelf: 'i32',
+			neighborDistance: 'i32',
+			birthRange: 'vec2f',
+			survivalRange: 'vec2f',
+		}, { uniformBuffer: true });
+
+		this.rulesBuffer = this.device.createBuffer({
+			label: 'largerlife::uniform::rules',
+			size: this.rulesStruct.totalSize,
+			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+		});
 
 		this.updateRuleBuffer();
 	}
@@ -244,7 +245,7 @@ const SCALE = vec2f(${scaleX}f, ${scaleY}f);
 				entries: [
 					{ binding: 0, resource: this.cellTextures[0].createView() },
 					{ binding: 1, resource: this.cellTextures[1].createView() },
-					{ binding: 2, resource: { buffer: this.rulesBuffer.buffer } },
+					{ binding: 2, resource: { buffer: this.rulesBuffer } },
 				]
 			}),
 			this.device.createBindGroup({
@@ -253,7 +254,7 @@ const SCALE = vec2f(${scaleX}f, ${scaleY}f);
 				entries: [
 					{ binding: 0, resource: this.cellTextures[1].createView() },
 					{ binding: 1, resource: this.cellTextures[0].createView() },
-					{ binding: 2, resource: { buffer: this.rulesBuffer.buffer } },
+					{ binding: 2, resource: { buffer: this.rulesBuffer } },
 				]
 			}),
 		];
@@ -300,11 +301,12 @@ const SCALE = vec2f(${scaleX}f, ${scaleY}f);
 
 	/** Update GPU uniform buffer with new rules. */
 	updateRuleBuffer() {
-		this.rulesBuffer.set({
-			includeSelf: [this.settings.rules.includeSelf ? 1 : 0],
-			neighborDistance: [this.settings.rules.neighborDistance],
+		this.rulesStruct.setAll({
+			includeSelf: this.settings.rules.includeSelf ? 1 : 0,
+			neighborDistance: this.settings.rules.neighborDistance,
 			birthRange: [this.settings.rules.birthMin, this.settings.rules.birthMax],
 			survivalRange: [this.settings.rules.survivalMin, this.settings.rules.survivalMax],
 		});
+		this.device.queue.writeBuffer(this.rulesBuffer, 0, this.rulesStruct.buffer);
 	}
 }
